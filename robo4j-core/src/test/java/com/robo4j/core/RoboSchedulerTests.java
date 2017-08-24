@@ -45,7 +45,8 @@ public class RoboSchedulerTests {
 
 	@Test
 	public void testScheduler() throws InterruptedException, ExecutionException {
-		// FIXME: 20.08.17 (miro,marcus): when notification implemented, correct the test
+		// FIXME: 20.08.17 (miro,marcus): when notification implemented, correct the
+		// test
 		RoboSystem system = new RoboSystem();
 		StringConsumer consumer = new StringConsumer(system, "consumer");
 		system.addUnits(consumer);
@@ -62,7 +63,7 @@ public class RoboSchedulerTests {
 		}
 
 		Thread.sleep(1000);
-		Assert.assertEquals(3,consumer.getReceivedMessages().size());
+		Assert.assertEquals(3, consumer.getReceivedMessages().size());
 		Assert.assertTrue(listener.wasFinalCalled);
 		system.shutdown();
 	}

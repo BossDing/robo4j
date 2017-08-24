@@ -17,6 +17,7 @@
 
 package com.robo4j.core.units.httpunit;
 
+import com.robo4j.core.AttributeDescriptor;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -82,6 +83,7 @@ public class RoboHttpPingPongTest {
 		RoboReference<Object> pongConsumer = systemPong.getReference("request_consumer");
 
 		// FIXME, TODO: 20.08.17 (miro,markus) please implement notification
+
 		Thread.sleep(1000);
 		System.out.println("systemPing : Going Down!");
 		systemPing.stop();
@@ -93,7 +95,6 @@ public class RoboHttpPingPongTest {
 		final DefaultAttributeDescriptor<Integer> messagesNumberDescriptor = DefaultAttributeDescriptor
 				.create(Integer.class, "getNumberOfSentMessages");
 		final int number = pongConsumer.getAttribute(messagesNumberDescriptor).get();
-		// NOTE: Not working
 		Assert.assertEquals(number, MESSAGES);
 		System.out.println("PingPong is down!");
 		systemPong.shutdown();

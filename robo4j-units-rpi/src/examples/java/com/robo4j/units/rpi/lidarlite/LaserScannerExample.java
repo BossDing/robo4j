@@ -18,6 +18,9 @@ package com.robo4j.units.rpi.lidarlite;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import com.robo4j.core.RoboBuilder;
 import com.robo4j.core.RoboBuilderException;
@@ -36,20 +39,34 @@ import com.robo4j.units.rpi.pwm.ServoUnitExample;
  */
 public class LaserScannerExample {
 
+	private static final String DEFAULT_LIDAREXAMPLE_XML = "lidarexample.xml";
+
 	public static void main(String[] args) throws RoboBuilderException, IOException {
 		float startAngle = -45.0f;
 		float range = 90.0f;
 		float step = 1.0f;
 
-		if (args.length > 0) {
-			startAngle = Float.parseFloat(args[0]);
-			if (args.length > 1) {
+		String inputFileName = null;
+		switch (args.length){
+			case 1:
+				inputFileName = args[0];
+				break;
+			case 3:
+				startAngle = Float.parseFloat(args[0]);
 				range = Float.parseFloat(args[1]);
-				if (args.length > 2) {
-					step = Float.parseFloat(args[2]);
-				}
-			}
+				step = Float.parseFloat(args[2]);
+				break;
+			case 4:
+				inputFileName = args[0];
+				startAngle = Float.parseFloat(args[0]);
+				range = Float.parseFloat(args[1]);
+				step = Float.parseFloat(args[2]);
+				break;
+			default:
+				System.out.println("default configuration");
+				break;
 		}
+
 		Configuration controllerConfiguration = ConfigurationFactory.createEmptyConfiguration();
 		controllerConfiguration.setFloat(LaserScannerTestController.CONFIG_KEY_START_ANGLE, startAngle);
 		controllerConfiguration.setFloat(LaserScannerTestController.CONFIG_KEY_RANGE, range);
@@ -58,7 +75,8 @@ public class LaserScannerExample {
 		System.out.println(String.format("Running scans with startAngle=%2.1f, range=%2.1f and step=%2.1f", startAngle, range, step));
 		
 		RoboBuilder builder = new RoboBuilder();
-		InputStream settings = ServoUnitExample.class.getClassLoader().getResourceAsStream("lidarexample.xml");
+
+		InputStream settings = loadPropertyFile(inputFileName);
 		if (settings == null) {
 			System.out.println("Could not find the settings for the LaserScannerExample!");
 			System.exit(2);
@@ -72,4 +90,16 @@ public class LaserScannerExample {
 		reference.sendMessage("scan");
 		System.in.read();
 	}
+
+	//Private Methods
+	private static InputStream loadPropertyFile(String fileName) throws IOException {
+		if(fileName != null){
+			Path filePath = Paths.get(fileName);
+			return Files.newInputStream(filePath);
+		} else {
+			return ServoUnitExample.class.getClassLoader().getResourceAsStream(DEFAULT_LIDAREXAMPLE_XML);
+		}
+	}
+
+
 }

@@ -8,7 +8,7 @@
  *
  * Robo4J is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
@@ -18,81 +18,110 @@
 package com.robo4j.socket.http.units;
 
 import com.robo4j.ConfigurationException;
+import com.robo4j.CriticalSectionTrait;
 import com.robo4j.RoboContext;
 import com.robo4j.RoboUnit;
 import com.robo4j.configuration.Configuration;
 import com.robo4j.logging.SimpleLoggingUtil;
-import com.robo4j.socket.http.util.ChannelUtils;
-import com.robo4j.socket.http.util.RoboHttpUtils;
+import com.robo4j.socket.http.ProtocolType;
+import com.robo4j.socket.http.channel.OutboundChannelHandler;
+import com.robo4j.socket.http.enums.StatusCode;
+import com.robo4j.socket.http.message.HttpDecoratedRequest;
+import com.robo4j.socket.http.message.HttpDecoratedResponse;
 
-import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Objects;
 
-import static com.robo4j.socket.http.util.RoboHttpUtils.HTTP_PROPERTY_BUFFER_CAPACITY;
-import static com.robo4j.socket.http.util.RoboHttpUtils.HTTP_PROPERTY_PORT;
+import static com.robo4j.socket.http.util.RoboHttpUtils.PROPERTY_BUFFER_CAPACITY;
+import static com.robo4j.socket.http.util.RoboHttpUtils.PROPERTY_HOST;
+import static com.robo4j.socket.http.util.RoboHttpUtils.PROPERTY_SOCKET_PORT;
+import static com.robo4j.socket.http.util.RoboHttpUtils.HTTP_PROPERTY_PROTOCOL;
 
 /**
- * Http NIO Client for communication with external Robo4J units
+ * Http NIO Client for communication with external Robo4J units. Unit accepts
+ * @see HttpDecoratedRequest type of message. Such message contains all
+ * necessary information and HttpClientDecorator unit is only implementation
+ * detail.
  *
  * @author Marcus Hirt (@hirt)
  * @author Miro Wengner (@miragemiko)
  */
-public class HttpClientUnit extends RoboUnit<Object> {
-	private InetSocketAddress address;
-	private String responseUnit;
-	private Integer responseSize;
+@CriticalSectionTrait
+public class HttpClientUnit extends RoboUnit<HttpDecoratedRequest> {
+
+	private static final EnumSet<StatusCode> PROCESS_RESPONSES_STATUSES = EnumSet.of(StatusCode.OK,
+			StatusCode.ACCEPTED);
 	private Integer bufferCapacity;
+	private ProtocolType protocol;
+	private String host;
+	private Integer port;
 
 	public HttpClientUnit(RoboContext context, String id) {
-		super(Object.class, context, id);
+		super(HttpDecoratedRequest.class, context, id);
 	}
 
 	@Override
 	protected void onInitialization(Configuration configuration) throws ConfigurationException {
-		String confAddress = configuration.getString("address", null);
-		int confPort = configuration.getInteger(HTTP_PROPERTY_PORT, RoboHttpUtils.DEFAULT_PORT);
-		responseUnit = configuration.getString("responseUnit", null);
-		responseSize = configuration.getInteger("responseSize", null);
-		bufferCapacity = configuration.getInteger(HTTP_PROPERTY_BUFFER_CAPACITY, null);
-
-		address = new InetSocketAddress(confAddress, confPort);
+		bufferCapacity = configuration.getInteger(PROPERTY_BUFFER_CAPACITY, null);
+		protocol = ProtocolType.valueOf(configuration.getString(HTTP_PROPERTY_PROTOCOL, "HTTP"));
+		host = configuration.getString(PROPERTY_HOST, null);
+		port = configuration.getInteger(PROPERTY_SOCKET_PORT, null);
+		Objects.requireNonNull(host, "host required");
+		if (port == null) {
+			port = protocol.getPort();
+		}
 	}
 
 	@Override
-	public void onMessage(Object message) {
-		try {
-			SocketChannel channel = SocketChannel.open(address);
+	public void onMessage(HttpDecoratedRequest message) {
+		final HttpDecoratedRequest request = adjustRequest(message);
+		final InetSocketAddress address = new InetSocketAddress(request.getHost(), request.getPort());
+		try (SocketChannel channel = SocketChannel.open(address)) {
 			if (bufferCapacity != null) {
 				channel.socket().setSendBufferSize(bufferCapacity);
 			}
 
-			String processMessage = message.toString();
 
-			byte[] bytes = processMessage.getBytes();
-			ByteBuffer buffer = ByteBuffer.allocate(bytes.length);
-			buffer.put(bytes);
-			buffer.flip();
 
-			ChannelUtils.writeBuffer(channel, buffer);
-			if (responseUnit != null && responseSize != null) {
-				ByteBuffer readBuffer = ByteBuffer.allocate(responseSize);
-				ChannelUtils.readBuffer(channel, readBuffer);
-				sendMessageToResponseUnit(readBuffer);
+			final OutboundChannelHandler handler = new OutboundChannelHandler(channel, request);
+
+			// TODO: 12/10/17 (miro) -> handler
+			handler.start();
+			handler.stop();
+
+			final HttpDecoratedResponse decoratedResponse = handler.getDecoratedResponse();
+
+			if (decoratedResponse != null && PROCESS_RESPONSES_STATUSES.contains(decoratedResponse.getCode())) {
+				if (!decoratedResponse.getCallbacks().isEmpty()) {
+					sendMessageToCallbacks(decoratedResponse.getCallbacks(), decoratedResponse.getMessage());
+				}
+			} else {
+				SimpleLoggingUtil.error(getClass(),
+						String.format("no callback or wrong response: %s", decoratedResponse));
 			}
 
-			buffer.clear();
-			channel.close();
-
-		} catch (IOException e) {
-			SimpleLoggingUtil.error(getClass(), String.format("not available: %s, no worry I continue sending. Error: %s",address ,e));
+		} catch (Exception e) {
+			SimpleLoggingUtil.error(getClass(),
+					String.format("not available: %s, no worry I continue sending. Error: %s", address, e));
 		}
 	}
 
-	// Private Methods
-	private void sendMessageToResponseUnit(ByteBuffer byteBuffer) {
-		getContext().getReference(responseUnit).sendMessage(byteBuffer.array());
+	private HttpDecoratedRequest adjustRequest(HttpDecoratedRequest request) {
+		request.setHost(host);
+		request.setPort(port);
+		request.addHostHeader();
+		return request;
+	}
+
+	private void sendMessageToCallbacks(List<String> callbacks, Object message) {
+		callbacks.forEach(callback -> sendMessageToCallback(callback, message));
+	}
+
+	private void sendMessageToCallback(String callback, Object message) {
+		getContext().getReference(callback).sendMessage(message);
 	}
 
 }

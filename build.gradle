@@ -9,7 +9,6 @@ apply plugin: 'idea'
 apply plugin: 'eclipse'
 apply plugin: 'maven'
 
-
 apply from: 'libraries.gradle'
 
 sourceCompatibility = 1.8
@@ -18,126 +17,6 @@ targetCompatibility = 1.8
 repositories {
     mavenCentral()
     mavenLocal()
-}
-
-project("robo4j-commons") {
-    description = "Robo4J Codec"
-
-    group 'com.robo4j'
-    version "${robo4jVersion}"
-
-    apply plugin: 'java'
-    apply plugin: 'idea'
-    apply plugin: 'eclipse'
-    apply plugin: 'maven'
-    apply plugin: 'signing'
-
-
-    sourceCompatibility = 1.8
-    targetCompatibility = 1.8
-
-    repositories {
-        mavenCentral()
-        mavenLocal()
-    }
-
-    dependencies {
-        testCompile "junit:junit:${junitVersion}"
-        testCompile "org.hamcrest:hamcrest-all:${hamcrestAllVersion}"
-    }
-
-    sourceSets {
-        main {
-            java {
-                srcDirs = ['src/main/java']
-            }
-            resources {
-                srcDirs = ['src/main/resources']
-            }
-        }
-
-        test {
-            java {
-                srcDirs = ['src/test/java']
-            }
-            resources {
-                srcDirs = ['src/test/resources']
-            }
-        }
-    }
-
-    group = "com.robo4j"
-    archivesBaseName = "robo4j-commons"
-    version = "${robo4jVersion}"
-
-
-    task javadocJar(type: Jar) {
-        classifier = 'javadoc'
-        from javadoc
-    }
-
-    task sourcesJar(type: Jar) {
-        classifier = 'sources'
-        from sourceSets.main.allSource
-    }
-
-    artifacts {
-        archives javadocJar, sourcesJar
-    }
-
-    signing {
-        sign configurations.archives
-    }
-
-    uploadArchives {
-        repositories {
-            mavenDeployer {
-                beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
-
-                repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
-                    authentication(userName: ossrhUsername, password: ossrhPassword)
-                }
-
-                snapshotRepository(url: "https://oss.sonatype.org/content/repositories/snapshots/") {
-                    authentication(userName: ossrhUsername, password: ossrhPassword)
-                }
-
-                pom.project {
-                    name 'Robo4J Commons'
-                    packaging 'jar'
-                    description 'Robo4J Commons library'
-                    url 'http://www.robo4j.io'
-
-                    scm {
-                        connection 'scm:git@github.com:Robo4J/robo4j.git'
-                        developerConnection 'scm:git@github.com:Robo4J/robo4j.git'
-                        url 'scm:git@github.com:Robo4J/robo4j.git'
-                    }
-
-                    licenses {
-                        license {
-                            name 'GNU General Public License, Version 3.0'
-                            url 'http://www.gnu.org/licenses/gpl-3.0.txt'
-                        }
-                    }
-
-                    developers {
-                        developer {
-                            id 'thegreystone'
-                            name 'Marcus Hirt'
-                            email 'marcus@robo4j.io'
-                        }
-
-                        developer {
-                            id 'mirage22'
-                            name 'Miroslav Wengner'
-                            email 'miro@robo4j.io'
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 project("robo4j-core") {
@@ -189,6 +68,7 @@ project("robo4j-core") {
         }
     }
 
+    //sonatype
     group = "com.robo4j"
     archivesBaseName = "robo4j-core"
     version = "${robo4jVersion}"
@@ -260,7 +140,6 @@ project("robo4j-core") {
             }
         }
     }
-
 }
 
 project("robo4j-db-sql") {
@@ -377,6 +256,7 @@ project("robo4j-hw-lego") {
         }
     }
 
+    //sonatype
     group = "com.robo4j"
     archivesBaseName = "robo4j-hw-lego"
     version = "${robo4jVersion}"
@@ -518,6 +398,7 @@ project("robo4j-hw-rpi") {
         }
     }
 
+    //sonatype
     group = "com.robo4j"
     archivesBaseName = "robo4j-hw-rpi"
     version = "${robo4jVersion}"
@@ -636,6 +517,7 @@ project("robo4j-math") {
         }
     }
 
+    //sonatype
     group = "com.robo4j"
     archivesBaseName = "robo4j-math"
     version = "${robo4jVersion}"
@@ -755,6 +637,7 @@ project("robo4j-page") {
         }
     }
 
+    //sonatype
     group = "com.robo4j"
     archivesBaseName = "robo4j-page"
     version = "${robo4jVersion}"
@@ -850,7 +733,6 @@ project("robo4j-socket-http") {
     }
 
     dependencies {
-        compile(project(":robo4j-commons"))
         compile(project(":robo4j-core"))
         testCompile "junit:junit:${junitVersion}@jar"
         testCompile "org.hamcrest:hamcrest-all:${hamcrestAllVersion}@jar"
@@ -877,6 +759,7 @@ project("robo4j-socket-http") {
         }
     }
 
+    //sonatype
     group = "com.robo4j"
     archivesBaseName = "robo4j-socket-http"
     version = "${robo4jVersion}"
@@ -1017,6 +900,7 @@ project("robo4j-units-lego") {
         }
     }
 
+    //sonatype
     group = "com.robo4j"
     archivesBaseName = "robo4j-units-lego"
     version = "${robo4jVersion}"
@@ -1132,7 +1016,6 @@ project("robo4j-units-rpi") {
     }
 
     dependencies {
-        compile(project(":robo4j-commons"))
         compile(project(":robo4j-core"))
         compile(project(":robo4j-hw-rpi"))
         testCompile "junit:junit:${junitVersion}"
@@ -1231,6 +1114,124 @@ project("robo4j-units-rpi") {
         }
     }
 }
+
+project("robo4j-units-rpi-http") {
+    description = "Robo4J Codecs for rpi units"
+
+    group 'com.robo4j'
+    version "${robo4jVersion}"
+
+    apply plugin: 'java'
+    apply plugin: 'idea'
+    apply plugin: 'eclipse'
+    apply plugin: 'maven'
+    apply plugin: 'signing'
+
+    sourceCompatibility = 1.8
+    targetCompatibility = 1.8
+
+    repositories {
+        mavenCentral()
+        mavenLocal()
+    }
+
+    dependencies {
+    	compile(project(":robo4j-socket-http"))
+        compile(project(":robo4j-units-rpi"))
+        testCompile "junit:junit:${junitVersion}"
+        testCompile "org.hamcrest:hamcrest-all:${hamcrestAllVersion}"
+    }
+
+    sourceSets {
+        main {
+            java {
+                srcDirs = ['src/main/java']
+            }
+        }
+
+        test {
+            java {
+                srcDirs = ['src/test/java']
+            }
+            resources {
+                srcDirs = ['src/test/resources']
+            }
+        }
+    }
+
+    group = "com.robo4j"
+    archivesBaseName = "robo4j-units-rpi-http"
+    version = "${robo4jVersion}"
+
+    task javadocJar(type: Jar) {
+        classifier = 'javadoc'
+        from javadoc
+    }
+
+    task sourcesJar(type: Jar) {
+        classifier = 'sources'
+        from sourceSets.main.allSource
+    }
+
+    artifacts {
+        archives javadocJar, sourcesJar
+    }
+
+    signing {
+        sign configurations.archives
+    }
+
+    uploadArchives {
+        repositories {
+            mavenDeployer {
+                beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+
+                repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
+                    authentication(userName: ossrhUsername, password: ossrhPassword)
+                }
+
+                snapshotRepository(url: "https://oss.sonatype.org/content/repositories/snapshots/") {
+                    authentication(userName: ossrhUsername, password: ossrhPassword)
+                }
+
+                pom.project {
+                    name 'robo4j-units-rpi-http'
+                    packaging 'jar'
+                    description 'Robo4J Raspberry Pi and Http Abstractions library'
+                    url 'http://www.robo4j.io'
+
+                    scm {
+                        connection 'scm:git@github.com:Robo4J/robo4j.git'
+                        developerConnection 'scm:git@github.com:Robo4J/robo4j.git'
+                        url 'scm:git@github.com:Robo4J/robo4j.git'
+                    }
+
+                    licenses {
+                        license {
+                            name 'GNU General Public License, Version 3.0'
+                            url 'http://www.gnu.org/licenses/gpl-3.0.txt'
+                        }
+                    }
+
+                    developers {
+                        developer {
+                            id 'thegreystone'
+                            name 'Marcus Hirt'
+                            email 'marcus@robo4j.io'
+                        }
+
+                        developer {
+                            id 'mirage22'
+                            name 'Miroslav Wengner'
+                            email 'miro@robo4j.io'
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 task wrapper(type: Wrapper) {
     gradleVersion = "${roboGradleVersion}"

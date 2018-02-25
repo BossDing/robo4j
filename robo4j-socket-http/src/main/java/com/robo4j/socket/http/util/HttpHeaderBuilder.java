@@ -25,7 +25,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static com.robo4j.socket.http.util.HttpConstant.STRING_EMPTY;
+import static com.robo4j.socket.http.util.HttpConstant.HTTP_NEW_LINE;
 
 /**
  * @author Marcus Hirt (@hirt)
@@ -79,11 +79,11 @@ public final class HttpHeaderBuilder {
 
 	public String build() {
 		final String start = firstLineBuilder == null || firstLineBuilder.isEmpty() ? StringConstants.EMPTY
-				: firstLineBuilder.build().concat(HttpMessageUtils.NEXT_LINE);
+				: firstLineBuilder.build().concat(HTTP_NEW_LINE);
 		return start.concat(map
 				.entrySet().stream().map(e -> e.getKey().concat(HttpMessageUtils.COLON).concat(HttpMessageUtils.SPACE)
-						.concat(e.getValue()).concat(HttpMessageUtils.NEXT_LINE))
-				.collect(Collectors.joining(STRING_EMPTY)));
+						.concat(e.getValue()).concat(HTTP_NEW_LINE))
+				.collect(Collectors.joining(StringConstants.EMPTY)));
 	}
 
 	/**
@@ -100,13 +100,13 @@ public final class HttpHeaderBuilder {
         return method.getName()
                 .concat(HttpMessageUtils.SPACE)
                 .concat(firstLineBuilder.build())
-                .concat(HttpMessageUtils.NEXT_LINE)
+                .concat(HTTP_NEW_LINE)
                 .concat(map.entrySet().stream()
                         .map(e -> e.getKey().concat(HttpMessageUtils.COLON)
                                 .concat(HttpMessageUtils.SPACE)
                                 .concat(e.getValue())
-                                .concat(HttpMessageUtils.NEXT_LINE))
-                        .collect(Collectors.joining(STRING_EMPTY)));
+                                .concat(HTTP_NEW_LINE))
+                        .collect(Collectors.joining(StringConstants.EMPTY)));
         //@formatter:on
 	}
 

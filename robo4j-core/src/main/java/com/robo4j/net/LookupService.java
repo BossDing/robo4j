@@ -26,6 +26,7 @@ import java.util.Map;
  * These exist outside of any context. In normal use, there will be one per JVM.
  * 
  * @author Marcus Hirt (@hirt)
+ * @author Miroslav Wengner (@miragemiko)
  */
 public interface LookupService {
 	/**
@@ -43,6 +44,16 @@ public interface LookupService {
 	 *         messages sent will be passed over the network.
 	 */
 	RoboContext getContext(String id);
+
+	/**
+	 * Returns the descriptor for the specified id, if one is on record. Returns
+	 * null if no context with the specified id is known.
+	 * 
+	 * @param id
+	 *            the UUID of the context to look for.
+	 * @return the descriptor for the specified id.
+	 */
+	RoboContextDescriptor getDescriptor(String id);
 
 	/**
 	 * Starts listening for information.

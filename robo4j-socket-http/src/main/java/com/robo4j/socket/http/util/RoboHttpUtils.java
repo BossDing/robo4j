@@ -19,7 +19,7 @@ package com.robo4j.socket.http.util;
 import com.robo4j.util.StringConstants;
 import com.robo4j.util.Utf8Constant;
 
-import static com.robo4j.util.Utf8Constant.UTF8_COLON;
+import java.util.Objects;
 
 /**
  * Basic Http constants and utils methods
@@ -31,12 +31,19 @@ public final class RoboHttpUtils {
 
 	public static final String NEW_LINE_MAC = "\r";
 	public static final String NEW_LINE_UNIX = "\n";
+
 	public static final int DEFAULT_PORT = 8042;
-	public static final String HTTP_TARGETS = "targets";
-	public static final String HTTP_PROPERTY_HOST = "host";
-	public static final String HTTP_PROPERTY_PORT = "port";
-	public static final String HTTP_PROPERTY_BUFFER_CAPACITY = "bufferCapacity";
-	public static final String HTTP_PROPERTY_RESPONSE_HANLDER = "responseHandler";
+	public static final int DEFAULT_UDP_PORT = 9042;
+	public static final String HTTP_PROPERTY_PROTOCOL = "protocol";
+	public static final String PROPERTY_TARGET = "target";
+	public static final String PROPERTY_HOST = "host";
+	public static final String PROPERTY_SOCKET_PORT = "port";
+	public static final String PROPERTY_CODEC_REGISTRY = "codecRegistry";
+	public static final String PROPERTY_CODEC_PACKAGES = "packages";
+	public static final String PROPERTY_UNIT_PATHS_CONFIG = "unitPathsConfig";
+	public static final String PROPERTY_BUFFER_CAPACITY = "bufferCapacity";
+	public static final String PROPERTY_BYTE_BUFFER = "byteBuffer";
+	public static final String PROPERTY_TIMEOUT = "timeout";
 
 	public static void decorateByNewLine(StringBuilder sb) {
 		sb.append(NEW_LINE_MAC).append(NEW_LINE_UNIX);
@@ -46,22 +53,21 @@ public final class RoboHttpUtils {
 		return line == null ? StringConstants.EMPTY : line;
 	}
 
-	public static String createHostWithPort(String host, Object port) {
-
-		return port == null || Integer.valueOf(port.toString()) == 80 ? host
-				: new StringBuilder(host).append(UTF8_COLON).append(port).toString();
-	}
-
-	public static String createHost(String host) {
-		return createHost(host, null);
-	}
-
+	/**
+	 * create host header note
+	 *
+	 * @param host
+	 *            desired host
+	 * @param port
+	 *            default port is 80
+	 * @return
+	 */
 	public static String createHost(String host, Integer port) {
-		StringBuilder sb = new StringBuilder(host);
-		if (port != null && port != 80 && port != 443) {
-			sb.append(Utf8Constant.UTF8_COLON).append(port);
-		}
-		return sb.toString();
+		Objects.requireNonNull(host, "host not available");
+		Objects.requireNonNull(host, "port not available");
+		return new StringBuilder(host)
+				.append(Utf8Constant.UTF8_COLON).append(port)
+				.toString();
 	}
 
 	/**
@@ -77,6 +83,20 @@ public final class RoboHttpUtils {
 	public static void printMeasuredTime(Class<?> clazz, String message, long start) {
 		System.out.println(String.format("%s message: %s duration: %d%n", clazz.getSimpleName(), message,
 				System.currentTimeMillis() - start));
+	}
+
+	// TODO: 1/26/18 (miro
+	public static boolean validatePackages(String packages) {
+		if (packages == null) {
+			return false;
+		}
+		for (int i = 0; i < packages.length(); i++) {
+			char c = packages.charAt(i);
+			if (Character.isWhitespace(c)) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 }

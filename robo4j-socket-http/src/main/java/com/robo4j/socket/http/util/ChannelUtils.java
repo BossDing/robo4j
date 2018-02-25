@@ -18,18 +18,27 @@
 package com.robo4j.socket.http.util;
 
 import com.robo4j.logging.SimpleLoggingUtil;
-import com.robo4j.socket.http.PropertiesProvider;
 import com.robo4j.socket.http.SocketException;
+import com.robo4j.socket.http.channel.DatagramConnectionType;
+import com.robo4j.socket.http.channel.SelectionKeyHandler;
+import com.robo4j.socket.http.units.ClientContext;
+import com.robo4j.socket.http.units.ServerContext;
+import com.robo4j.socket.http.units.SocketContext;
 
 import java.io.IOException;
+import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.ByteChannel;
+import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.spi.AbstractSelectableChannel;
 
-import static com.robo4j.socket.http.util.RoboHttpUtils.HTTP_PROPERTY_PORT;
+import static com.robo4j.socket.http.util.RoboHttpUtils.PROPERTY_HOST;
+import static com.robo4j.socket.http.util.RoboHttpUtils.PROPERTY_SOCKET_PORT;
 
 /**
  * @author Marcus Hirt (@hirt)
@@ -83,7 +92,7 @@ public final class ChannelUtils {
 		return totalWritten;
 	}
 
-	public static SelectionKey registerSelectionKey(ServerSocketChannel result) {
+	public static SelectionKey registerSelectionKey(AbstractSelectableChannel result) {
 		try {
 			final Selector selector = Selector.open();
 			return result.register(selector, SelectionKey.OP_ACCEPT);
@@ -93,11 +102,21 @@ public final class ChannelUtils {
 		}
 	}
 
-	public static ServerSocketChannel initServerSocketChannel(PropertiesProvider properties) {
+	public static SelectionKey registerDatagramSelectionKey(AbstractSelectableChannel result) {
 		try {
-			ServerSocketChannel result = ServerSocketChannel.open();
+			final Selector selector = Selector.open();
+			return result.register(selector, SelectionKey.OP_READ, SelectionKey.OP_WRITE);
+		} catch (Exception e) {
+			SimpleLoggingUtil.error(ChannelUtils.class, "resister selection key", e);
+			throw new SocketException("resister selection key", e);
+		}
+	}
+
+	public static ServerSocketChannel initServerSocketChannel(ServerContext context) {
+		try {
+			final ServerSocketChannel result = ServerSocketChannel.open();
+			result.bind(new InetSocketAddress(context.getPropertySafe(Integer.class, PROPERTY_SOCKET_PORT)));
 			result.configureBlocking(false);
-			result.bind(new InetSocketAddress(properties.getIntSafe(HTTP_PROPERTY_PORT)));
 			return result;
 		} catch (Exception e) {
 			SimpleLoggingUtil.error(ChannelUtils.class, "init server socket channel", e);
@@ -105,9 +124,50 @@ public final class ChannelUtils {
 		}
 	}
 
-	public static int getReadyChannelBySelectionKey(SelectionKey key) {
+	public static DatagramChannel initDatagramChannel(DatagramConnectionType connectionType, SocketContext<?> context){
 		try {
-			return key.selector().select();
+			final DatagramChannel result = DatagramChannel.open();
+			SocketAddress address = getSocketAddressByContext(context);
+			switch (connectionType){
+				case SERVER:
+					DatagramSocket socket = result.socket();
+					result.configureBlocking(false);
+					socket.bind(address);
+					break;
+				case CLIENT:
+					result.connect(address);
+					break;
+				default:
+					throw new SocketException("int not supported: " + connectionType);
+			}
+			return result;
+
+		} catch (Exception e){
+			SimpleLoggingUtil.error(ChannelUtils.class, "init datagram socket channel", e);
+			throw new SocketException("init datagram socket channel", e);
+		}
+	}
+
+	public static SocketAddress getSocketAddressByContext(SocketContext<?> context){
+		if(context instanceof ClientContext){
+			final String clientHost = context.getPropertySafe(String.class, PROPERTY_HOST);
+			final int clientPort = context.getPropertySafe(Integer.class, PROPERTY_SOCKET_PORT);
+			return new InetSocketAddress(clientHost,clientPort);
+		} else if (context instanceof ServerContext){
+			final int serverPort = context.getPropertySafe(Integer.class, PROPERTY_SOCKET_PORT);
+			return new InetSocketAddress(serverPort);
+		} else {
+			throw new SocketException("invalid context" + context);
+		}
+	}
+
+	public static int getReadyChannelBySelectionKey(SelectionKey key) {
+		return getReadyChannelBySelectionKey(key, 0L);
+	}
+
+	public static int getReadyChannelBySelectionKey(SelectionKey key, long timeout) {
+		try {
+			return key.selector().select(timeout);
 		} catch (Exception e) {
 			SimpleLoggingUtil.error(ChannelUtils.class, "get ready channel by selection key", e);
 			throw new SocketException("get ready channel by selection key", e);
@@ -122,6 +182,10 @@ public final class ChannelUtils {
 		} finally {
 			buffer.clear();
 		}
+	}
+
+	public static void handleSelectorHandler(SelectionKeyHandler handler) {
+		handler.handle();
 	}
 
 }

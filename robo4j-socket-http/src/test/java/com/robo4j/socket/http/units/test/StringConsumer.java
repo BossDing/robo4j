@@ -17,11 +17,15 @@
 package com.robo4j.socket.http.units.test;
 
 import com.robo4j.AttributeDescriptor;
+import com.robo4j.ConfigurationException;
+import com.robo4j.DefaultAttributeDescriptor;
 import com.robo4j.RoboContext;
 import com.robo4j.RoboUnit;
+import com.robo4j.configuration.Configuration;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -29,12 +33,27 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author Marcus Hirt (@hirt)
  * @author Miroslav Wengner (@miragemiko)
  */
+
+@SuppressWarnings("rawtypes")
 public class StringConsumer extends RoboUnit<String> {
-	private static final int DEFAULT = 0;
+	public static final String NAME = "stringConsumer";
 	public static final String PROP_GET_NUMBER_OF_SENT_MESSAGES = "getNumberOfSentMessages";
 	public static final String PROP_GET_RECEIVED_MESSAGES = "getReceivedMessages";
+	public static final String PROP_COUNT_DOWN_LATCH = "countDownLatch";
+	public static final String PROP_COUNT_DOWN_LATCH_COUNT = "countDownLatchCount";
+	public static final String PROP_TOTAL_NUMBER_MESSAGES = "totalNumberMessages";
+
+	public static final DefaultAttributeDescriptor<CountDownLatch> DESCRIPTOR_COUNT_DOWN_LATCH = DefaultAttributeDescriptor
+			.create(CountDownLatch.class, PROP_COUNT_DOWN_LATCH);
+	public static final DefaultAttributeDescriptor<Integer> DESCRIPTOR_MESSAGES_NUMBER_TOTAL = DefaultAttributeDescriptor
+			.create(Integer.class, PROP_GET_NUMBER_OF_SENT_MESSAGES);
+	public static final DefaultAttributeDescriptor<List> DESCRIPTOR_RECEIVED_MESSAGES = DefaultAttributeDescriptor
+			.create(List.class, PROP_GET_RECEIVED_MESSAGES);
+
+	private static final int DEFAULT = 0;
 	private AtomicInteger counter;
 	private List<String> receivedMessages = new ArrayList<>();
+	private CountDownLatch countDownLatch;
 
 	/**
 	 * @param context
@@ -45,15 +64,21 @@ public class StringConsumer extends RoboUnit<String> {
 		this.counter = new AtomicInteger(DEFAULT);
 	}
 
-	public synchronized List<String> getReceivedMessages() {
-		return receivedMessages;
+	@Override
+	protected void onInitialization(Configuration configuration) throws ConfigurationException {
+		int totalNumber = configuration.getInteger(PROP_TOTAL_NUMBER_MESSAGES, 0);
+		if (totalNumber > 0) {
+			countDownLatch = new CountDownLatch(totalNumber);
+		}
 	}
 
 	@Override
 	public void onMessage(String message) {
-		System.out.println(getClass().getSimpleName() + " onMessage: " + message);
 		counter.incrementAndGet();
 		receivedMessages.add(message);
+		if (countDownLatch != null) {
+			countDownLatch.countDown();
+		}
 	}
 
 	@SuppressWarnings("unchecked")
@@ -66,6 +91,14 @@ public class StringConsumer extends RoboUnit<String> {
 		if (attribute.getAttributeName().equals(PROP_GET_RECEIVED_MESSAGES)
 				&& attribute.getAttributeType() == List.class) {
 			return (R) receivedMessages;
+		}
+		if (attribute.getAttributeName().equals(PROP_COUNT_DOWN_LATCH)
+				&& attribute.getAttributeType() == CountDownLatch.class) {
+			return (R) countDownLatch;
+		}
+		if (attribute.getAttributeName().equals(PROP_COUNT_DOWN_LATCH_COUNT)
+				&& attribute.getAttributeType() == Long.class) {
+			return (R) (countDownLatch == null ? Long.valueOf(0L) : Long.valueOf(countDownLatch.getCount()));
 		}
 		return null;
 	}

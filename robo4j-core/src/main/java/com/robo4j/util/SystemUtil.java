@@ -16,12 +16,13 @@
  */
 package com.robo4j.util;
 
+import com.robo4j.RoboContext;
+import com.robo4j.RoboReference;
+import com.robo4j.logging.SimpleLoggingUtil;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-
-import com.robo4j.RoboContext;
-import com.robo4j.RoboReference;
 
 /**
  * Some useful little utilities.
@@ -48,20 +49,18 @@ public final class SystemUtil {
 		StringBuilder builder = new StringBuilder();
 		List<RoboReference<?>> references = new ArrayList<>(ctx.getUnits());
 		references.sort(ID_COMPARATOR);
-		//formatter:off
-		builder.append("RoboSystem state ").append(ctx.getState().getLocalizedName())
-				.append(BREAK)
-				.append("================================================")
-				.append(BREAK);
+		// formatter:off
+		builder.append("RoboSystem state ").append(ctx.getState().getLocalizedName()).append(BREAK)
+				.append("================================================").append(BREAK);
 		for (RoboReference<?> reference : references) {
-			builder.append(String.format("    %-25s   %13s", reference.getId(), reference.getState().getLocalizedName()))
-					.append(BREAK);
+			builder.append(String.format("    %-25s   %13s", reference.getId(), reference.getState().getLocalizedName())).append(BREAK);
 		}
-		//formatter:on
+		// formatter:on
 		return builder.toString();
 	}
 
-	public static String printSocketEndPoint(RoboReference<?> point, RoboReference<?> codecUnit){
+	// TODO: 1/25/18 (miro) convert it to JSON message
+	public static String printSocketEndPoint(RoboReference<?> point, RoboReference<?> codecUnit) {
 		final int port = point.getConfiguration().getInteger("port", 0);
 		StringBuilder sb = new StringBuilder();
 		//@formatter:off
@@ -88,4 +87,19 @@ public final class SystemUtil {
 		//@formatter:on
 		return sb.toString();
 	}
+
+	/**
+	 * Puts the current thread to sleep for the specified amount of time.
+	 * 
+	 * @param millis
+	 *            number of milliseconds to sleep.
+	 */
+	public static void sleep(int millis) {
+		try {
+			Thread.sleep(millis);
+		} catch (InterruptedException e) {
+			SimpleLoggingUtil.info(SystemUtil.class, "Sleep was interrupted.", e);
+		}
+	}
+
 }

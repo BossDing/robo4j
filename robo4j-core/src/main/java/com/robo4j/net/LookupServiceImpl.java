@@ -41,6 +41,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * settings for the heartbeat.
  * 
  * @author Marcus Hirt (@hirt)
+ * @author Miroslav Wengner (@miragemiko)
  */
 class LookupServiceImpl implements LookupService {
 	// FIXME(marcus/6 Nov 2017): This should be calculated, and used when
@@ -116,7 +117,7 @@ class LookupServiceImpl implements LookupService {
 		}
 
 		private int readShort(int i, byte[] data) {
-			return data[i] << 8 + data[i + 1];
+			return (data[i] << 8) + (data[i + 1] & 0xFF);
 		}
 
 		public void stop() {
@@ -142,7 +143,7 @@ class LookupServiceImpl implements LookupService {
 	public RoboContext getContext(String id) {
 		RoboContextDescriptorEntry entry = entries.get(id);
 		if (entry != null) {
-			return new RemoteRoboContext(entry);
+			return new ClientRemoteRoboContext(entry);
 		} else {
 			return null;
 		}
@@ -165,5 +166,11 @@ class LookupServiceImpl implements LookupService {
 			currentUpdater.stop();
 			currentUpdater = null;
 		}
+	}
+
+	@Override
+	public RoboContextDescriptor getDescriptor(String id) {
+		RoboContextDescriptorEntry entry = entries.get(id);
+		return entry != null ? entry.descriptor : null;
 	}
 }

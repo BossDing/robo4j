@@ -19,34 +19,28 @@
 
 package com.robo4j.socket.http.units;
 
-import com.robo4j.DefaultAttributeDescriptor;
 import com.robo4j.LifecycleState;
 import com.robo4j.RoboBuilder;
 import com.robo4j.RoboContext;
 import com.robo4j.RoboReference;
 import com.robo4j.configuration.Configuration;
 import com.robo4j.configuration.ConfigurationFactory;
-import com.robo4j.socket.http.HttpHeaderFieldNames;
 import com.robo4j.socket.http.HttpMethod;
-import com.robo4j.socket.http.HttpVersion;
 import com.robo4j.socket.http.units.test.HttpCommandTestController;
+import com.robo4j.socket.http.units.test.SocketMessageDecoratedProducerUnit;
 import com.robo4j.socket.http.units.test.StringConsumer;
-import com.robo4j.socket.http.util.HttpDenominator;
-import com.robo4j.socket.http.util.HttpMessageBuilder;
-import com.robo4j.socket.http.util.HttpPathUtils;
-import com.robo4j.socket.http.util.JsonUtil;
-import com.robo4j.socket.http.util.RequestDenominator;
-import com.robo4j.socket.http.util.RoboHttpUtils;
+import com.robo4j.socket.http.util.HttpPathConfigJsonBuilder;
 import com.robo4j.util.SystemUtil;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.Future;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
-import static com.robo4j.socket.http.util.RoboHttpUtils.HTTP_PROPERTY_PORT;
+import static com.robo4j.socket.http.util.RoboHttpUtils.PROPERTY_TARGET;
+import static com.robo4j.socket.http.util.RoboHttpUtils.PROPERTY_HOST;
+import static com.robo4j.socket.http.util.RoboHttpUtils.PROPERTY_SOCKET_PORT;
+import static com.robo4j.socket.http.util.RoboHttpUtils.PROPERTY_UNIT_PATHS_CONFIG;
 
 /**
  *
@@ -59,14 +53,12 @@ public class RoboHttpDynamicTests {
 
 	private static final String ID_HTTP_SERVER = "http";
 	private static final int PORT = 8025;
-	private static final int SLEEP_DELAY = 400; // necessary delay due to multi-threading we should fix it
 	private static final String ID_CLIENT_UNIT = "httpClient";
 	private static final String ID_TARGET_UNIT = "controller";
-	private static final int MESSAGES_NUMBER = 6;
+	private static final int MESSAGES_NUMBER = 42;
 	private static final String HOST_SYSTEM = "0.0.0.0";
-	private static final String REQUEST_CONSUMER = "request_consumer";
-	private static final String HTTP_METHOD = "POST";
 	static final String JSON_STRING = "{\"value\":\"stop\"}";
+	private static final String DECORATED_PRODUCER = "decoratedProducer";
 
 	/**
 	 * Motivation Client system is sending messages to the main system over HTTP
@@ -80,48 +72,31 @@ public class RoboHttpDynamicTests {
 	public void simpleHttpNonUnitTest() throws Exception {
 
 		/* tested system configuration */
-		RoboContext mainSystem = getServerRoboSystem();
-		System.out.println(SystemUtil.printStateReport(mainSystem));
-		System.out.println("Server start after start:");
+		RoboContext mainSystem = getServerRoboSystem(MESSAGES_NUMBER);
 
 		/* system which is testing main system */
 		RoboContext clientSystem = getClientRoboSystem();
-		RoboReference<Object> httpClientReference = clientSystem.getReference(ID_CLIENT_UNIT);
 
+		System.out.println("Client system state after start:");
 		System.out.println(SystemUtil.printStateReport(clientSystem));
-		System.out.println("Client State after start:");
 
-		System.out.println("State after start:");
+		System.out.println("Main system state after start:");
 		System.out.println(SystemUtil.printStateReport(mainSystem));
 
 		/* client system sending a messages to the main system */
-		List<String> paths = Arrays.asList("units", ID_TARGET_UNIT);
-		for (int i = 0; i < MESSAGES_NUMBER; i++) {
+		RoboReference<Object> decoratedProducer = clientSystem.getReference(DECORATED_PRODUCER);
+		decoratedProducer.sendMessage(MESSAGES_NUMBER);
+		CountDownLatch countDownLatchDecoratedProducer = decoratedProducer
+				.getAttribute(StringConsumer.DESCRIPTOR_COUNT_DOWN_LATCH).get();
+		countDownLatchDecoratedProducer.await(1, TimeUnit.MINUTES);
 
-			HttpDenominator denominator = new RequestDenominator(HttpMethod.POST, HttpPathUtils.pathsToUri(paths), HttpVersion.HTTP_1_1);
-			String messageToSend = HttpMessageBuilder.Build()
-					.setDenominator(denominator)
-                    .addHeaderElement(HttpHeaderFieldNames.HOST, RoboHttpUtils.createHost(HOST_SYSTEM))
-					.addHeaderElement(HttpHeaderFieldNames.CONTENT_LENGTH, String.valueOf(JSON_STRING.length()))
-					.build(JSON_STRING);
+		final RoboReference<String> stringConsumer = mainSystem.getReference(StringConsumer.NAME);
+		final CountDownLatch countDownLatch = stringConsumer.getAttribute(StringConsumer.DESCRIPTOR_COUNT_DOWN_LATCH)
+				.get();
+		countDownLatch.await(1, TimeUnit.MINUTES);
+		final int receivedMessages = stringConsumer.getAttribute(StringConsumer.DESCRIPTOR_MESSAGES_NUMBER_TOTAL).get();
 
-			httpClientReference.sendMessage(messageToSend);
-		}
-
-		Thread.sleep(SLEEP_DELAY);
-
-		clientSystem.stop();
 		clientSystem.shutdown();
-
-		System.out.println("Going Down!");
-
-		final DefaultAttributeDescriptor<Integer> descriptor = DefaultAttributeDescriptor.create(Integer.class,
-				StringConsumer.PROP_GET_NUMBER_OF_SENT_MESSAGES);
-		final Future<Integer> messagesFuture = mainSystem.getReference(REQUEST_CONSUMER).getAttribute(descriptor);
-		final int receivedMessages = messagesFuture.get();
-
-		Thread.sleep(SLEEP_DELAY);
-		mainSystem.stop();
 		mainSystem.shutdown();
 
 		System.out.println("System is Down!");
@@ -130,22 +105,24 @@ public class RoboHttpDynamicTests {
 	}
 
 	// Private Methods
-	private RoboContext getServerRoboSystem() throws Exception {
+	private RoboContext getServerRoboSystem(int totalMessageNumber) throws Exception {
 		/* tested system configuration */
 		RoboBuilder builder = new RoboBuilder();
 
 		Configuration config = ConfigurationFactory.createEmptyConfiguration();
-		config.setInteger(HTTP_PROPERTY_PORT, PORT);
+		config.setInteger(PROPERTY_SOCKET_PORT, PORT);
 		config.setString("packages", "com.robo4j.socket.http.units.test.codec");
-		config.setString(RoboHttpUtils.HTTP_TARGETS,
-				JsonUtil.getJsonByMap(Collections.singletonMap(ID_TARGET_UNIT, HTTP_METHOD)));
+		config.setString(PROPERTY_UNIT_PATHS_CONFIG,
+				HttpPathConfigJsonBuilder.Builder().addPath(ID_TARGET_UNIT, HttpMethod.POST).build());
 		builder.add(HttpServerUnit.class, config, ID_HTTP_SERVER);
 
 		config = ConfigurationFactory.createEmptyConfiguration();
-		config.setString("target", REQUEST_CONSUMER);
+		config.setString(PROPERTY_TARGET, StringConsumer.NAME);
 		builder.add(HttpCommandTestController.class, config, ID_TARGET_UNIT);
 
-		builder.add(StringConsumer.class, REQUEST_CONSUMER);
+		config = ConfigurationFactory.createEmptyConfiguration();
+		config.setInteger(StringConsumer.PROP_TOTAL_NUMBER_MESSAGES, totalMessageNumber);
+		builder.add(StringConsumer.class, config, StringConsumer.NAME);
 
 		RoboContext result = builder.build();
 		Assert.assertNotNull(result.getUnits());
@@ -164,17 +141,18 @@ public class RoboHttpDynamicTests {
 		RoboBuilder builder = new RoboBuilder();
 
 		Configuration config = ConfigurationFactory.createEmptyConfiguration();
-		config.setString("address", HOST_SYSTEM);
-		config.setInteger(HTTP_PROPERTY_PORT, PORT);
-		/* specific configuration */
-		config.setString(RoboHttpUtils.HTTP_TARGETS,
-				JsonUtil.getJsonByMap(Collections.singletonMap(ID_TARGET_UNIT, HTTP_METHOD)));
+		config.setString(PROPERTY_HOST, HOST_SYSTEM);
+		config.setInteger(PROPERTY_SOCKET_PORT, PORT);
 		builder.add(HttpClientUnit.class, config, ID_CLIENT_UNIT);
+
+		config = ConfigurationFactory.createEmptyConfiguration();
+		config.setString(PROPERTY_TARGET, ID_CLIENT_UNIT);
+		config.setString(PROPERTY_UNIT_PATHS_CONFIG, "[{\"roboUnit\":\"" + ID_TARGET_UNIT + "\",\"method\":\"POST\"}]");
+		config.setString("message", JSON_STRING);
+		builder.add(SocketMessageDecoratedProducerUnit.class, config, DECORATED_PRODUCER);
 
 		RoboContext result = builder.build();
 		result.start();
-		System.out.println("Client State after start:");
-		System.out.println(SystemUtil.printStateReport(result));
 		return result;
 	}
 }

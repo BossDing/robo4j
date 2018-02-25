@@ -20,26 +20,26 @@
 package com.robo4j.socket.http.units;
 
 import com.robo4j.ConfigurationException;
+import com.robo4j.CriticalSectionTrait;
 import com.robo4j.LifecycleState;
 import com.robo4j.RoboContext;
-import com.robo4j.RoboReference;
 import com.robo4j.RoboUnit;
 import com.robo4j.configuration.Configuration;
-import com.robo4j.logging.SimpleLoggingUtil;
-import com.robo4j.socket.http.PropertiesProvider;
-import com.robo4j.socket.http.channel.InboundSocketHandler;
+import com.robo4j.socket.http.channel.InboundSocketChannelHandler;
+import com.robo4j.socket.http.dto.ServerUnitPathDTO;
+import com.robo4j.socket.http.util.CodeRegistryUtils;
+import com.robo4j.socket.http.util.HttpPathUtils;
 import com.robo4j.socket.http.util.JsonUtil;
 import com.robo4j.socket.http.util.RoboHttpUtils;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Collectors;
 
 import static com.robo4j.socket.http.util.ChannelBufferUtils.INIT_BUFFER_CAPACITY;
-import static com.robo4j.socket.http.util.RoboHttpUtils.HTTP_PROPERTY_BUFFER_CAPACITY;
-import static com.robo4j.socket.http.util.RoboHttpUtils.HTTP_PROPERTY_PORT;
-import static com.robo4j.socket.http.util.RoboHttpUtils.HTTP_TARGETS;
+import static com.robo4j.socket.http.util.RoboHttpUtils.PROPERTY_CODEC_PACKAGES;
+import static com.robo4j.socket.http.util.RoboHttpUtils.PROPERTY_CODEC_REGISTRY;
+import static com.robo4j.socket.http.util.RoboHttpUtils.PROPERTY_SOCKET_PORT;
+import static com.robo4j.socket.http.util.RoboHttpUtils.PROPERTY_UNIT_PATHS_CONFIG;
+import static com.robo4j.socket.http.util.RoboHttpUtils.PROPERTY_BUFFER_CAPACITY;
 
 /**
  * Http NIO unit allows to configure format of the requests currently is only
@@ -48,13 +48,12 @@ import static com.robo4j.socket.http.util.RoboHttpUtils.HTTP_TARGETS;
  * @author Marcus Hirt (@hirt)
  * @author Miro Wengner (@miragemiko)
  */
+@CriticalSectionTrait
 public class HttpServerUnit extends RoboUnit<Object> {
-	public static final String PROPERTY_CODEC_REGISTRY = "codecRegistry";
-	public static final String CODEC_PACKAGES_CODE = "packages";
-	private final HttpCodecRegistry codecRegistry = new HttpCodecRegistry();
-	private final PropertiesProvider propertiesProvider = new PropertiesProvider();
-	private List<String> targets;
-	private InboundSocketHandler inboundSocketHandler;
+
+	private final ServerContext serverContext = new ServerContext();
+	private InboundSocketChannelHandler handler;
+	private List<ServerUnitPathDTO> paths;
 
 	public HttpServerUnit(RoboContext context, String id) {
 		super(Object.class, context, id);
@@ -62,66 +61,36 @@ public class HttpServerUnit extends RoboUnit<Object> {
 
 	@Override
 	protected void onInitialization(Configuration configuration) throws ConfigurationException {
-		int port = configuration.getInteger(HTTP_PROPERTY_PORT, RoboHttpUtils.DEFAULT_PORT);
-		int bufferCapacity = configuration.getInteger(HTTP_PROPERTY_BUFFER_CAPACITY, INIT_BUFFER_CAPACITY);
+		int port = configuration.getInteger(PROPERTY_SOCKET_PORT, RoboHttpUtils.DEFAULT_PORT);
+		int bufferCapacity = configuration.getInteger(PROPERTY_BUFFER_CAPACITY, INIT_BUFFER_CAPACITY);
 
-		String packages = configuration.getString(CODEC_PACKAGES_CODE, null);
-		if (validatePackages(packages)) {
-			codecRegistry.scan(Thread.currentThread().getContextClassLoader(), packages.split(","));
-		}
+		paths = JsonUtil.readPathConfig(ServerUnitPathDTO.class, configuration.getString(PROPERTY_UNIT_PATHS_CONFIG, null));
 
-		String targets = configuration.getString(HTTP_TARGETS, null);
-		if(targets == null){
-			SimpleLoggingUtil.info(getClass(), "no target units available");
-		} else {
-			Map<String, Object> targetUnitsMap = JsonUtil.getMapByJson(targets);
-			this.targets = targetUnitsMap.entrySet().stream()
-					.map(Map.Entry::getKey)
-					.collect(Collectors.toList());
-			// TODO: 12/12/17 (miro) improve uri(path) registration
-			targetUnitsMap.forEach((key, value) ->
-					HttpUriRegister.getInstance().addUnitPathNode(key, value.toString()));
-		}
+		serverContext.putProperty(PROPERTY_BUFFER_CAPACITY, bufferCapacity);
+		serverContext.putProperty(PROPERTY_SOCKET_PORT, port);
 
-		propertiesProvider.put(HTTP_PROPERTY_BUFFER_CAPACITY, bufferCapacity);
-		propertiesProvider.put(HTTP_PROPERTY_PORT, port);
-		propertiesProvider.put(PROPERTY_CODEC_REGISTRY, codecRegistry);
+		String packages = configuration.getString(PROPERTY_CODEC_PACKAGES, null);
+
+		serverContext.putProperty(PROPERTY_CODEC_REGISTRY, CodeRegistryUtils.getCodecRegistry(packages));
+
 	}
 
+	/**
+	 * start updates context by references
+	 */
 	@Override
 	public void start() {
 		setState(LifecycleState.STARTING);
-		//@formatter:off
-		final List<RoboReference<Object>> targetRefs = targets.stream()
-				.map(e -> getContext().getReference(e))
-				.filter(Objects::nonNull)
-				.collect(Collectors.toList());
-		//@formatter:on
-
-		inboundSocketHandler = new InboundSocketHandler(getContext(), targetRefs, propertiesProvider);
-		HttpUriRegister.getInstance().updateUnits(getContext());
-		inboundSocketHandler.start();
+		HttpPathUtils.updateHttpServerContextPaths(getContext(), serverContext, paths);
+		handler = new InboundSocketChannelHandler(getContext(), serverContext);
+		handler.start();
 		setState(LifecycleState.STARTED);
 	}
 
 	@Override
 	public void stop() {
 		setState(LifecycleState.STOPPING);
-		inboundSocketHandler.stop();
+		handler.stop();
 		setState(LifecycleState.STOPPED);
 	}
-
-	private boolean validatePackages(String packages) {
-		if (packages == null) {
-			return false;
-		}
-		for (int i = 0; i < packages.length(); i++) {
-			char c = packages.charAt(i);
-			if (Character.isWhitespace(c)) {
-				return false;
-			}
-		}
-		return true;
-	}
-
 }

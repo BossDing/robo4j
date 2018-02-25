@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, 2017, Marcus Hirt, Miroslav Wengner
+ * Copyright (c) 2014, 2018, Marcus Hirt, Miroslav Wengner
  *
  * Robo4J is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,7 +19,6 @@ package com.robo4j.net;
 
 import com.robo4j.RoboContext;
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -36,6 +35,7 @@ import java.util.Map;
  * @author Miroslav Wengner (@miragemiko)
  */
 
+
 @RunWith(LookupServiceTestRunner.class)
 public class LookupServiceTests {
 	private static final float ALLOWED_HEARTBEAT_MISSES = 22f;
@@ -46,6 +46,7 @@ public class LookupServiceTests {
 		String id = "MyID";
 		int heartBeatInterval = 1234;
 		metadata.put("name", "Pretty Human Readable Name");
+		metadata.put("uri", "robo4j://localhost:12345");
 		RoboContextDescriptor descriptor = new RoboContextDescriptor(id, heartBeatInterval, metadata);
 		byte[] encodedDescriptor = HearbeatMessageCodec.encode(descriptor);
 		RoboContextDescriptor decodedDescriptor = HearbeatMessageCodec.decode(encodedDescriptor);
@@ -55,7 +56,6 @@ public class LookupServiceTests {
 		Assert.assertEquals(descriptor.getMetadata(), decodedDescriptor.getMetadata());
 	}
 
-	@Ignore
 	@Test
 	public void testLookup() throws IOException, InterruptedException {
 		LookupService service = new LookupServiceImpl(LookupServiceProvider.DEFAULT_MULTICAST_ADDRESS,
@@ -64,7 +64,7 @@ public class LookupServiceTests {
 		RoboContextDescriptor descriptor = createRoboContextDescriptor();
 		ContextEmitter emitter = new ContextEmitter(descriptor,
 				InetAddress.getByName(LookupServiceProvider.DEFAULT_MULTICAST_ADDRESS),
-				LookupServiceProvider.DEFAULT_PORT);
+				LookupServiceProvider.DEFAULT_PORT, 250);
 
 		for (int i = 0; i < 10; i++) {
 			emitter.emit();
@@ -74,7 +74,7 @@ public class LookupServiceTests {
 		System.out.println(discoveredContexts);
 		Assert.assertEquals(1, discoveredContexts.size());
 		RoboContext context = service.getContext(descriptor.getId());
-		RemoteRoboContext remoteContext = (RemoteRoboContext) context;
+		ClientRemoteRoboContext remoteContext = (ClientRemoteRoboContext) context;
 		Assert.assertNotNull(remoteContext.getAddress());
 		System.out.println("Address: " + remoteContext.getAddress());
 	}
@@ -84,6 +84,7 @@ public class LookupServiceTests {
 		String id = "MyID";
 		int heartBeatInterval = 1234;
 		metadata.put("name", "Pretty Human Readable Name");
+		metadata.put(RoboContextDescriptor.KEY_URI, "robo4j://localhost:12345");
 		return new RoboContextDescriptor(id, heartBeatInterval, metadata);
 	}
 

@@ -17,17 +17,16 @@
 
 package com.robo4j.socket.http.units;
 
-import com.robo4j.AttributeDescriptor;
-import com.robo4j.DefaultAttributeDescriptor;
-import com.robo4j.RoboBuilder;
 import com.robo4j.RoboContext;
 import com.robo4j.RoboReference;
+import com.robo4j.socket.http.units.test.StringConsumer;
 import com.robo4j.util.SystemUtil;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.io.InputStream;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * testing http method GET with response
@@ -36,16 +35,15 @@ import java.util.List;
  * @author Miro Wengner (@miragemiko)
  */
 public class RoboHttpClientWithResponseTests {
-	private static final int MAX_NUMBER = 10;
-	private static final String ROBO_SYSTEM_DESC = "[{\"id\":\"stringConsumer\",\"com.robo4j.LifecycleState\":\"STARTED\"}"
-			+ ",{\"id\":\"httpServer\",\"com.robo4j.LifecycleState\":\"STARTED\"}]";
+	private static final int MAX_NUMBER = 100;
+	private static final String ROBO_SYSTEM_DESC = "[{\"id\":\"stringConsumer\",\"state\":\"STARTED\"},{\"id\":\"httpServer\",\"state\":\"STARTED\"}]";
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Test
 	public void simpleRoboSystemGetRequestTest() throws Exception {
 
-		RoboContext producerSystem = getProducer();
-		RoboContext consumerSystem = getConsumer();
+		RoboContext producerSystem = RoboContextUtils.loadSimpleByXml("robo_http_client_request_producer_text.xml");
+		RoboContext consumerSystem = RoboContextUtils.loadSimpleByXml("robo_http_client_request_consumer_text.xml");
 
 		consumerSystem.start();
 		producerSystem.start();
@@ -58,37 +56,21 @@ public class RoboHttpClientWithResponseTests {
 
 		RoboReference<Integer> decoratedProducer = producerSystem.getReference("decoratedProducer");
 		decoratedProducer.sendMessage(MAX_NUMBER);
-		RoboReference<String> stringConsumer = producerSystem.getReference("stringConsumer");
 
-		AttributeDescriptor<List> receivedMessagesAttribute = new DefaultAttributeDescriptor<>(List.class,
-				"getReceivedMessages");
-		AttributeDescriptor<Integer> setMessagesAttribute = new DefaultAttributeDescriptor<>(Integer.class,
-				"getNumberOfSentMessages");
-		while (stringConsumer.getAttribute(setMessagesAttribute).get() < MAX_NUMBER) {
-		}
-		List<String> receivedMessageList = (List<String>) stringConsumer.getAttribute(receivedMessagesAttribute).get();
-		Assert.assertTrue(stringConsumer.getAttribute(setMessagesAttribute).get() == MAX_NUMBER);
-		Assert.assertTrue(receivedMessageList.contains(ROBO_SYSTEM_DESC));
+		RoboReference<String> stringConsumerProducer = producerSystem.getReference(StringConsumer.NAME);
+		CountDownLatch countDownLatchStringProducer = stringConsumerProducer
+				.getAttribute(StringConsumer.DESCRIPTOR_COUNT_DOWN_LATCH).get();
 
+		countDownLatchStringProducer.await(1, TimeUnit.MINUTES);
+		final int consumerTotalNumber = stringConsumerProducer
+				.getAttribute(StringConsumer.DESCRIPTOR_MESSAGES_NUMBER_TOTAL).get();
+		List<String> consumerMessageList = stringConsumerProducer
+				.getAttribute(StringConsumer.DESCRIPTOR_RECEIVED_MESSAGES).get();
 		producerSystem.shutdown();
 		consumerSystem.shutdown();
 
-	}
-
-	private RoboContext getProducer() throws Exception {
-		RoboBuilder builderProducer = new RoboBuilder();
-		InputStream clientConfigInputStream = Thread.currentThread().getContextClassLoader()
-				.getResourceAsStream("robo_client_request_producer_text.xml");
-		builderProducer.add(clientConfigInputStream);
-		return builderProducer.build();
-	}
-
-	private RoboContext getConsumer() throws Exception {
-		RoboBuilder builderConsumer = new RoboBuilder();
-		InputStream serverConfigInputStream = Thread.currentThread().getContextClassLoader()
-				.getResourceAsStream("robo_client_request_consumer_text.xml");
-		builderConsumer.add(serverConfigInputStream);
-		return builderConsumer.build();
+		Assert.assertTrue(consumerTotalNumber == MAX_NUMBER);
+		Assert.assertTrue(consumerMessageList.contains(ROBO_SYSTEM_DESC));
 	}
 
 }

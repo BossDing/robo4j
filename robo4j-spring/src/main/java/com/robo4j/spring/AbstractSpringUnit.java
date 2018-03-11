@@ -43,7 +43,7 @@ public class AbstractSpringUnit<T> extends RoboUnit<T> {
 
 	/**
 	 * get registered component
-	 * 
+	 *
 	 * @param name
 	 *            spring component name
 	 * @param clazz

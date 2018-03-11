@@ -24,12 +24,13 @@ import com.robo4j.configuration.Configuration;
 import com.robo4j.configuration.ConfigurationFactory;
 import com.robo4j.spring.service.SimpleServiceImpl;
 import com.robo4j.spring.unit.SimpleRoboSpringUnit;
+import com.robo4j.util.PropertyMapBuilder;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Marcus Hirt (@hirt)
@@ -50,22 +51,23 @@ public class RoboSpringTests {
 		RoboReference<String> springUnit = system.getReference(ROBO_SPRING_UNIT);
 		springUnit.sendMessage(MAGIC_MESSAGE);
 
+        TimeUnit.MILLISECONDS.sleep(10);
 		List<String> receivedMessages = (List<String>) springUnit
 				.getAttribute(SimpleRoboSpringUnit.DESCRIPTOR_RECEIVED_MESSAGES).get();
 
 		system.shutdown();
 
-		Assert.assertTrue(receivedMessages.contains("SPRING:".concat(MAGIC_MESSAGE)));
+		Assert.assertTrue("message: " + receivedMessages, receivedMessages.contains("SPRING:".concat(MAGIC_MESSAGE)));
 
 	}
 
 	private RoboContext getRoboSpringSystem() throws Exception {
 		/* system which is testing main system */
 
-		Map<String, Object> springComponents = new HashMap<>();
-		springComponents.put(SimpleRoboSpringUnit.COMPONENT_SIMPLE_SERVICE, new SimpleServiceImpl());
+		final Map<String, Object> springComponents = new PropertyMapBuilder<String, Object>()
+				.put(SimpleRoboSpringUnit.COMPONENT_SIMPLE_SERVICE, new SimpleServiceImpl()).create();
 
-		RoboBuilder result = new RoboBuilder();
+		final RoboBuilder result = new RoboBuilder();
 
 		Configuration config = ConfigurationFactory.createEmptyConfiguration();
 		config.setValue(RoboSpringRegisterUnit.PROPERTY_COMPONENTS, springComponents);

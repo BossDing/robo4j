@@ -61,7 +61,7 @@ public class AbstractSpringUnit<T> extends RoboUnit<T> {
 	 *            component class
 	 * @param <C>
 	 *            component class type
-	 * @return
+	 * @return available spring bean
 	 */
 	protected <C> C getComponent(String name, Class<C> clazz) {
 		final DefaultAttributeDescriptor<String> descriptor = DefaultAttributeDescriptor.create(String.class, name);

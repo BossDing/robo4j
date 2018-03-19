@@ -4,6 +4,7 @@ ext {
     roboGradleVersion = "4.4.1"
     hibernateVersion = "5.2.10.Final"
     hibernateJpaVersion = "1.0.0.Final"
+    springVersion = "5.0.4.RELEASE"
     flywayVersion = "4.2.0"
     h2Version = "1.4.195"
     postgresqlVersion = "9.4-1200-jdbc41"

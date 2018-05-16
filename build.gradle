@@ -8,36 +8,35 @@ apply plugin: 'java'
 apply plugin: 'idea'
 apply plugin: 'eclipse'
 apply plugin: 'maven'
-
 apply from: 'libraries.gradle'
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
-
-repositories {
-    mavenCentral()
-    mavenLocal()
+allprojects {
+    repositories {
+        mavenCentral()
+        mavenLocal()
+        maven { url "https://oss.sonatype.org/content/repositories/snapshots/" }
+    }
 }
 
-project("robo4j-core") {
-    description = "Robo4J Core"
-
-    group 'com.robo4j'
-    version "${robo4jVersion}"
-
+subprojects {
     apply plugin: 'java'
     apply plugin: 'idea'
     apply plugin: 'eclipse'
     apply plugin: 'maven'
     apply plugin: 'signing'
 
-    sourceCompatibility = 1.8
-    targetCompatibility = 1.8
-
-    repositories {
-        mavenCentral()
-        mavenLocal()
+    compileJava {
+        sourceCompatibility = "${robo4jJavaVersion}"
+        targetCompatibility = "${robo4jJavaVersion}"
     }
+
+    group 'com.robo4j'
+    version "${robo4jVersion}"
+}
+
+
+project("robo4j-core") {
+    description = "Robo4J Core"
 
     dependencies {
         testCompile "junit:junit:${junitVersion}@jar"
@@ -146,22 +145,7 @@ project("robo4j-db-sql") {
 
     description = "Robo4J Database SQL"
 
-    group 'com.robo4j'
-    version "${robo4jVersion}"
-
-    apply plugin: 'java'
-    apply plugin: 'idea'
-    apply plugin: 'eclipse'
-    apply plugin: 'maven'
     apply plugin: "org.flywaydb.flyway"
-
-    sourceCompatibility = 1.8
-    targetCompatibility = 1.8
-
-    repositories {
-        mavenCentral()
-        mavenLocal()
-    }
 
     dependencies {
         compile(project(":robo4j-core"))
@@ -204,36 +188,15 @@ project("robo4j-db-sql") {
 project("robo4j-hw-lego") {
     description = "Robo4J Lego Hardware"
 
-    group 'com.robo4j'
-    version "${robo4jVersion}"
-
-    apply plugin: 'java'
-    apply plugin: 'idea'
-    apply plugin: 'eclipse'
-    apply plugin: 'maven'
-    apply plugin: 'signing'
-
-    sourceCompatibility = 1.8
-    targetCompatibility = 1.8
-
     repositories {
         mavenCentral()
         mavenLocal()
-    }
-
-    uploadArchives {
-        repositories {
-            mavenDeployer {
-                repository(url: "${mavenRepository}")
-            }
-        }
     }
 
     dependencies {
         compile fileTree(dir: 'libs', include: 'ev3classes-9.1.jar')
         compile(project(":robo4j-math"))
         testCompile "junit:junit:${junitVersion}"
-        testCompile "org.hamcrest:hamcrest-all:${hamcrestAllVersion}"
     }
 
     sourceSets {
@@ -333,35 +296,10 @@ project("robo4j-hw-lego") {
 project("robo4j-hw-rpi") {
     description = "Robo4J RaspberryPi Hardware"
 
-    group 'com.robo4j'
-    version "${robo4jVersion}"
-
-    apply plugin: 'java'
-    apply plugin: 'idea'
-    apply plugin: 'eclipse'
-    apply plugin: 'maven'
-    apply plugin: 'signing'
-
-    sourceCompatibility = 1.8
-    targetCompatibility = 1.8
-
-    repositories {
-        mavenCentral()
-        mavenLocal()
-    }
-
-    uploadArchives {
-        repositories {
-            mavenDeployer {
-                repository(url: "${mavenRepository}")
-            }
-        }
-    }
-
     //create a single Jar with all dependencies
     task fatJar(type: Jar) {
         manifest {
-            attributes 'Implementation-Title': 'robo4j-hw-rpi',
+            attributes 'Implementation-Title': baseName,
                     'Implementation-Version': version,
                     'Main-Class': 'com.robo4j.hw.rpi.i2c.adafruitled.GraphBarTest'
         }
@@ -372,10 +310,9 @@ project("robo4j-hw-rpi") {
     }
 
     dependencies {
-        compile fileTree(dir: 'libs', include: 'pi4j-core-1.2-20170907.193313-36.jar')
+        compile "com.pi4j:pi4j-core:${pi4jVersion}"
         compile(project(":robo4j-math"))
         testCompile "junit:junit:${junitVersion}"
-        testCompile "org.hamcrest:hamcrest-all:${hamcrestAllVersion}"
     }
 
     sourceSets {
@@ -475,26 +412,9 @@ project("robo4j-hw-rpi") {
 project("robo4j-math") {
     description = "Robo4J Math"
 
-    group 'com.robo4j'
-    version "${robo4jVersion}"
-
-    apply plugin: 'java'
-    apply plugin: 'idea'
-    apply plugin: 'eclipse'
-    apply plugin: 'maven'
-    apply plugin: 'signing'
-
-    sourceCompatibility = 1.8
-    targetCompatibility = 1.8
-
-    repositories {
-        mavenCentral()
-        mavenLocal()
-    }
 
     dependencies {
         testCompile "junit:junit:${junitVersion}"
-        testCompile "org.hamcrest:hamcrest-all:${hamcrestAllVersion}"
     }
 
     sourceSets {
@@ -594,23 +514,6 @@ project("robo4j-math") {
 
 project("robo4j-page") {
     description = "Robo4J Page"
-
-    group 'com.robo4j'
-    version "${robo4jVersion}"
-
-    apply plugin: 'java'
-    apply plugin: 'idea'
-    apply plugin: 'eclipse'
-    apply plugin: 'maven'
-    apply plugin: 'signing'
-
-    sourceCompatibility = 1.8
-    targetCompatibility = 1.8
-
-    repositories {
-        mavenCentral()
-        mavenLocal()
-    }
 
     dependencies {
         testCompile "junit:junit:${junitVersion}@jar"
@@ -712,31 +615,12 @@ project("robo4j-page") {
 }
 
 project("robo4j-socket-http") {
-
     description = "Robo4J socket http"
-
-    group 'com.robo4j'
-    version "${robo4jVersion}"
-
-    apply plugin: 'java'
-    apply plugin: 'idea'
-    apply plugin: 'eclipse'
-    apply plugin: 'maven'
-    apply plugin: 'signing'
-
-    sourceCompatibility = 1.8
-    targetCompatibility = 1.8
-
-    repositories {
-        mavenCentral()
-        mavenLocal()
-    }
 
     dependencies {
         compile(project(":robo4j-core"))
         testCompile "junit:junit:${junitVersion}@jar"
         testCompile "org.hamcrest:hamcrest-all:${hamcrestAllVersion}@jar"
-        testCompile "org.mockito:mockito-all:${mockitoVerison}@jar"
     }
 
     sourceSets {
@@ -835,31 +719,6 @@ project("robo4j-socket-http") {
 
 project("robo4j-units-lego") {
     description = "Robo4J Lego Abstractions"
-
-    group 'com.robo4j'
-    version "${robo4jVersion}"
-
-    apply plugin: 'java'
-    apply plugin: 'idea'
-    apply plugin: 'eclipse'
-    apply plugin: 'maven'
-    apply plugin: 'signing'
-
-    sourceCompatibility = 1.8
-    targetCompatibility = 1.8
-
-    repositories {
-        mavenCentral()
-        mavenLocal()
-    }
-
-    uploadArchives {
-        repositories {
-            mavenDeployer {
-                repository(url: "${mavenRepository}")
-            }
-        }
-    }
 
     //create a single Jar with all dependencies
     task fatJar(type: Jar) {
@@ -977,31 +836,6 @@ project("robo4j-units-lego") {
 project("robo4j-units-rpi") {
     description = "Robo4J Raspberry Pi"
 
-    group 'com.robo4j'
-    version "${robo4jVersion}"
-
-    apply plugin: 'java'
-    apply plugin: 'idea'
-    apply plugin: 'eclipse'
-    apply plugin: 'maven'
-    apply plugin: 'signing'
-
-    sourceCompatibility = 1.8
-    targetCompatibility = 1.8
-
-    repositories {
-        mavenCentral()
-        mavenLocal()
-    }
-
-    uploadArchives {
-        repositories {
-            mavenDeployer {
-                repository(url: "${mavenRepository}")
-            }
-        }
-    }
-
     //create a single Jar with all dependencies
     task fatJar(type: Jar) {
         manifest {
@@ -1118,23 +952,6 @@ project("robo4j-units-rpi") {
 project("robo4j-units-rpi-http") {
     description = "Robo4J Codecs for rpi units"
 
-    group 'com.robo4j'
-    version "${robo4jVersion}"
-
-    apply plugin: 'java'
-    apply plugin: 'idea'
-    apply plugin: 'eclipse'
-    apply plugin: 'maven'
-    apply plugin: 'signing'
-
-    sourceCompatibility = 1.8
-    targetCompatibility = 1.8
-
-    repositories {
-        mavenCentral()
-        mavenLocal()
-    }
-
     dependencies {
         compile(project(":robo4j-socket-http"))
         compile(project(":robo4j-units-rpi"))
@@ -1233,20 +1050,7 @@ project("robo4j-units-rpi-http") {
 }
 
 project("robo4j-spring") {
-
     description = "Robo4J Spring support"
-
-    group 'com.robo4j'
-    version "${robo4jVersion}"
-
-    apply plugin: 'java'
-    apply plugin: 'idea'
-    apply plugin: 'eclipse'
-    apply plugin: 'maven'
-    apply plugin: 'signing'
-
-    sourceCompatibility = 1.8
-    targetCompatibility = 1.8
 
     repositories {
         mavenCentral()
@@ -1257,7 +1061,6 @@ project("robo4j-spring") {
         compile(project(":robo4j-core"))
         testCompile "junit:junit:${junitVersion}@jar"
         testCompile "org.hamcrest:hamcrest-all:${hamcrestAllVersion}@jar"
-        testCompile "org.mockito:mockito-all:${mockitoVerison}@jar"
     }
 
     sourceSets {

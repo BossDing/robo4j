@@ -27,12 +27,15 @@ import com.robo4j.socket.http.json.JsonDocument;
 import com.robo4j.socket.http.json.JsonReader;
 import com.robo4j.socket.http.units.ClientContext;
 import com.robo4j.socket.http.units.ClientPathConfig;
+import com.robo4j.socket.http.units.PathHttpMethod;
 import com.robo4j.socket.http.units.ServerContext;
 import com.robo4j.socket.http.units.ServerPathConfig;
 import com.robo4j.util.StringConstants;
 import com.robo4j.util.Utf8Constant;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -72,8 +75,10 @@ public final class HttpPathUtils {
 	/**
 	 * transform path dto to proper http server path
 	 *
-	 * @param dto path DTO
-	 * @param reference roboReference related to the path
+	 * @param dto
+	 *            path DTO
+	 * @param reference
+	 *            roboReference related to the path
 	 * @return server unit path config
 	 */
 	public static ServerPathConfig toServerPathConfig(ServerUnitPathDTO dto, RoboReference<Object> reference) {
@@ -84,25 +89,28 @@ public final class HttpPathUtils {
 	public static ClientPathConfig toClientPathConfig(ClientPathDTO dto) {
 		final String unitPath = dto.getRoboUnit().equals(StringConstants.EMPTY) ? Utf8Constant.UTF8_SOLIDUS
 				: toPath(SystemPath.UNITS.getPath(), dto.getRoboUnit());
-		return new ClientPathConfig(unitPath, dto.getMethod(), dto.getCallbacks());
+		final List<String> callbacks = dto.getCallbacks() == null ? new ArrayList<>() : dto.getCallbacks();
+		return new ClientPathConfig(unitPath, dto.getMethod(), callbacks);
 	}
 
-	public static void updateHttpServerContextPaths(final RoboContext context, final ServerContext serverContext, final Collection<ServerUnitPathDTO> paths){
-		final Map<String, ServerPathConfig> resultPaths = paths.stream().map(e -> {
+	public static void updateHttpServerContextPaths(final RoboContext context, final ServerContext serverContext,
+			final Collection<ServerUnitPathDTO> paths) {
+		final Map<PathHttpMethod, ServerPathConfig> resultPaths = paths.stream().map(e -> {
 			RoboReference<Object> reference = context.getReference(e.getRoboUnit());
 			return HttpPathUtils.toServerPathConfig(e, reference);
-		}).collect(Collectors.toMap(ServerPathConfig::getPath, e -> e));
-		resultPaths.put(Utf8Constant.UTF8_SOLIDUS,
+		}).collect(Collectors.toMap(e -> new PathHttpMethod(e.getPath(), e.getMethod()), e -> e));
+
+
+		resultPaths.put(new PathHttpMethod(Utf8Constant.UTF8_SOLIDUS,HttpMethod.GET),
 				new ServerPathConfig(Utf8Constant.UTF8_SOLIDUS, null, HttpMethod.GET));
 		serverContext.addPaths(resultPaths);
 	}
 
-
-
-	public static void updateHttpClientContextPaths(final ClientContext clientContext, final Collection<ClientPathDTO> paths){
-		final Map<String, ClientPathConfig> resultPaths = paths.stream()
-				.map(HttpPathUtils::toClientPathConfig)
-				.collect(Collectors.toMap(ClientPathConfig::getPath, e -> e));
+	public static void updateHttpClientContextPaths(final ClientContext clientContext,
+			final Collection<ClientPathDTO> paths) {
+		final Map<PathHttpMethod, ClientPathConfig> resultPaths = paths.stream()
+                .map(HttpPathUtils::toClientPathConfig)
+				.collect(Collectors.toMap(e -> new PathHttpMethod(e.getPath(), e.getMethod()), e -> e));
 		clientContext.addPaths(resultPaths);
 	}
 

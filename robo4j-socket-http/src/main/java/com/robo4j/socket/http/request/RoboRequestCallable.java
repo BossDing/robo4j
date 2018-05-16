@@ -19,7 +19,6 @@ package com.robo4j.socket.http.request;
 
 import com.robo4j.RoboContext;
 import com.robo4j.logging.SimpleLoggingUtil;
-import com.robo4j.socket.http.HttpMessage;
 import com.robo4j.socket.http.enums.StatusCode;
 import com.robo4j.socket.http.message.HttpDecoratedRequest;
 import com.robo4j.socket.http.units.ServerContext;
@@ -54,49 +53,52 @@ public class RoboRequestCallable implements Callable<HttpResponseProcess> {
 	@Override
 	public HttpResponseProcess call() throws Exception {
 
-		final HttpResponseProcess result = new HttpResponseProcess();
-		final ServerPathConfig pathConfig = serverContext.getPathConfig(decoratedRequest.getPath());
+		final HttpResponseProcessBuilder resultBuilder = HttpResponseProcessBuilder.Builder();
+		final ServerPathConfig pathConfig = serverContext.getPathConfig(decoratedRequest.getPathMethod());
 
-		if (pathConfig.getMethod().equals(decoratedRequest.getMethod())) {
-			result.setMethod(pathConfig.getMethod());
+		if (isValidPath(pathConfig)) {
+			resultBuilder.setMethod(pathConfig.getMethod());
+			resultBuilder.setPath(pathConfig.getPath());
 
-			// TODO: 1/23/18 (miro) http message wrap headers
-			final HttpMessage httpMessage = new HttpMessage(decoratedRequest);
-			result.setPath(pathConfig.getPath());
-
-			switch (httpMessage.method()) {
+			switch (pathConfig.getMethod()) {
 			case GET:
 				if (pathConfig.getPath().equals(UTF8_SOLIDUS)) {
-					result.setCode(StatusCode.OK);
-					result.setResult(factory.processGet(context));
+					resultBuilder.setCode(StatusCode.OK);
+					resultBuilder.setResult(factory.processGet(context));
 				} else {
-					result.setTarget(pathConfig.getRoboUnit().getId());
+					resultBuilder.setTarget(pathConfig.getRoboUnit().getId());
 					final Object unitDescription = factory.processGet(pathConfig);
-					result.setCode(StatusCode.OK);
-					result.setResult(unitDescription);
+					resultBuilder.setCode(StatusCode.OK);
+					resultBuilder.setResult(unitDescription);
 				}
-				return result;
+				break;
 			case POST:
-				final String postValue = decoratedRequest.getMessage();
 				if (pathConfig.getPath().equals(UTF8_SOLIDUS)) {
-					result.setCode(StatusCode.NOT_IMPLEMENTED);
+					resultBuilder.setCode(StatusCode.BAD_REQUEST);
 				} else {
-					result.setTarget(pathConfig.getRoboUnit().getId());
-					Object respObj = factory.processPost(pathConfig.getRoboUnit(), postValue);
-					result.setCode(StatusCode.ACCEPTED);
-					result.setResult(respObj);
+					resultBuilder.setTarget(pathConfig.getRoboUnit().getId());
+					Object respObj = factory.processPost(pathConfig.getRoboUnit(), decoratedRequest.getMessage());
+					if (respObj == null) {
+						resultBuilder.setCode(StatusCode.BAD_REQUEST);
+					} else {
+						resultBuilder.setCode(StatusCode.ACCEPTED);
+						resultBuilder.setResult(respObj);
+					}
 				}
-				return result;
-
+				break;
 			default:
-				result.setCode(StatusCode.BAD_REQUEST);
-				SimpleLoggingUtil.debug(getClass(), "not implemented method: " + decoratedRequest.getMethod());
+				resultBuilder.setCode(StatusCode.BAD_REQUEST);
+				SimpleLoggingUtil.debug(getClass(), "not implemented method: " + decoratedRequest.getPathMethod());
 			}
 		} else {
-			result.setCode(StatusCode.BAD_REQUEST);
+			resultBuilder.setCode(StatusCode.BAD_REQUEST);
 		}
+		return resultBuilder.build();
+	}
 
-		return result;
+	private boolean isValidPath(ServerPathConfig pathConfig) {
+		return pathConfig != null && decoratedRequest.getPathMethod() != null
+				&& decoratedRequest.getPathMethod().getMethod().equals(pathConfig.getMethod());
 	}
 
 }

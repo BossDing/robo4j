@@ -21,6 +21,7 @@ import com.robo4j.configuration.ConfigurationFactory;
 import com.robo4j.configuration.ConfigurationFactoryException;
 import com.robo4j.configuration.XmlConfigurationFactory;
 import com.robo4j.logging.SimpleLoggingUtil;
+import com.robo4j.net.LookupServiceProvider;
 import com.robo4j.util.StringConstants;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
@@ -61,8 +62,7 @@ public final class RoboBuilder {
 		private boolean inSystemElement = false;
 
 		@Override
-		public void startElement(String uri, String localName, String qName, Attributes attributes)
-				throws SAXException {
+		public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
 			switch (qName) {
 			case ELEMENT_ROBO_UNIT:
 				currentId = attributes.getValue("id");
@@ -94,8 +94,8 @@ public final class RoboBuilder {
 					try {
 						SimpleLoggingUtil.debug(getClass(), "Loading " + currentClassName.trim() + " id=" + currentId);
 						@SuppressWarnings("unchecked")
-						Class<RoboUnit<?>> roboUnitClass = (Class<RoboUnit<?>>) Thread.currentThread()
-								.getContextClassLoader().loadClass(currentClassName.trim());
+						Class<RoboUnit<?>> roboUnitClass = (Class<RoboUnit<?>>) Thread.currentThread().getContextClassLoader()
+								.loadClass(currentClassName.trim());
 						Configuration config = currentConfiguration.trim().equals(StringConstants.EMPTY) ? null
 								: XmlConfigurationFactory.fromXml(currentConfiguration);
 						internalAddUnit(instantiateAndInitialize(roboUnitClass, currentId.trim(), config));
@@ -134,8 +134,7 @@ public final class RoboBuilder {
 			return String.format("%s=\"%s\" %s=\"%s\" %s=\"%s\" %s=\"%s\"", XmlConfigurationFactory.ATTRIBUTE_NAME,
 					attributes.getValue(XmlConfigurationFactory.ATTRIBUTE_NAME), XmlConfigurationFactory.ATTRIBUTE_TYPE,
 					attributes.getValue(XmlConfigurationFactory.ATTRIBUTE_TYPE), XmlConfigurationFactory.ATTRIBUTE_PATH,
-					attributes.getValue(XmlConfigurationFactory.ATTRIBUTE_PATH),
-					XmlConfigurationFactory.ATTRIBUTE_METHOD,
+					attributes.getValue(XmlConfigurationFactory.ATTRIBUTE_PATH), XmlConfigurationFactory.ATTRIBUTE_METHOD,
 					attributes.getValue(XmlConfigurationFactory.ATTRIBUTE_METHOD));
 		}
 
@@ -174,8 +173,7 @@ public final class RoboBuilder {
 		private RoboSystem system;
 
 		@Override
-		public void startElement(String uri, String localName, String qName, Attributes attributes)
-				throws SAXException {
+		public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
 			switch (qName) {
 			case ELEMENT_SYSTEM:
 				currentId = attributes.getValue("id");
@@ -199,8 +197,7 @@ public final class RoboBuilder {
 				SimpleLoggingUtil.debug(getClass(), "Loading system id=" + currentId);
 				Configuration config;
 				try {
-					config = currentConfiguration.trim().equals("") ? null
-							: XmlConfigurationFactory.fromXml(currentConfiguration);
+					config = currentConfiguration.trim().equals("") ? null : XmlConfigurationFactory.fromXml(currentConfiguration);
 					if (currentId == null) {
 						system = new RoboSystem(config);
 					} else {
@@ -237,8 +234,7 @@ public final class RoboBuilder {
 			return String.format("%s=\"%s\" %s=\"%s\" %s=\"%s\" %s=\"%s\"", XmlConfigurationFactory.ATTRIBUTE_NAME,
 					attributes.getValue(XmlConfigurationFactory.ATTRIBUTE_NAME), XmlConfigurationFactory.ATTRIBUTE_TYPE,
 					attributes.getValue(XmlConfigurationFactory.ATTRIBUTE_TYPE), XmlConfigurationFactory.ATTRIBUTE_PATH,
-					attributes.getValue(XmlConfigurationFactory.ATTRIBUTE_PATH),
-					XmlConfigurationFactory.ATTRIBUTE_METHOD,
+					attributes.getValue(XmlConfigurationFactory.ATTRIBUTE_PATH), XmlConfigurationFactory.ATTRIBUTE_METHOD,
 					attributes.getValue(XmlConfigurationFactory.ATTRIBUTE_METHOD));
 		}
 
@@ -272,7 +268,8 @@ public final class RoboBuilder {
 	 * Use this builder constructor to configure the RoboSystem.
 	 * 
 	 * @param systemConfig
-	 *            the configuration settings for the system
+	 *            the configuration settings for the system. Note that this is
+	 *            separate from the unit definitions today.
 	 * @throws RoboBuilderException
 	 *             possible exception
 	 */
@@ -367,28 +364,28 @@ public final class RoboBuilder {
 	 * @throws RoboBuilderException
 	 *             if the creation or adding of the unit failed.
 	 */
-	public RoboBuilder add(Class<? extends RoboUnit<?>> clazz, Configuration configuration, String id)
-			throws RoboBuilderException {
+	public RoboBuilder add(Class<? extends RoboUnit<?>> clazz, Configuration configuration, String id) throws RoboBuilderException {
 		internalAddUnit(instantiateAndInitialize(clazz, id, configuration));
 		return this;
 	}
 
 	/**
-	 * Returns the built {@link RoboContext}. This should be the final method called
-	 * on the builder.
+	 * Returns the built {@link RoboContext}. This should be the final method
+	 * called on the builder.
 	 * 
 	 * @return the RoboContext.
 	 */
 	public RoboContext build() {
 		system.addUnits(units);
+		LookupServiceProvider.registerLocalContext(system);
 		system.setState(LifecycleState.INITIALIZED);
 		return system;
 	}
 
 	/**
-	 * Returns the context being built. This should only be used so that units can
-	 * be instantiated with more control outside the builder. Note that you should
-	 * then add the instances to the builder through add.
+	 * Returns the context being built. This should only be used so that units
+	 * can be instantiated with more control outside the builder. Note that you
+	 * should then add the instances to the builder through add.
 	 * 
 	 * @return the context being built.
 	 */
@@ -397,8 +394,8 @@ public final class RoboBuilder {
 	}
 
 	/**
-	 * Will load all the units from the definitions found in the XML file and add
-	 * them to the builder.
+	 * Will load all the units from the definitions found in the XML file and
+	 * add them to the builder.
 	 * 
 	 * @param inputStream
 	 *            the xml file containing the definitions.
@@ -432,8 +429,8 @@ public final class RoboBuilder {
 		if (unit == null) {
 			throw new RoboBuilderException("Cannot add the null unit! Skipping");
 		} else if (units.contains(unit)) {
-			throw new RoboBuilderException("Only one unit with the id " + unit.getId()
-					+ " can be active at a time. Skipping " + unit.toString());
+			throw new RoboBuilderException(
+					"Only one unit with the id " + unit.getId() + " can be active at a time. Skipping " + unit.toString());
 		}
 		units.add(unit);
 	}
@@ -442,14 +439,14 @@ public final class RoboBuilder {
 		try {
 			Constructor<? extends RoboUnit<?>> constructor = clazz.getConstructor(RoboContext.class, String.class);
 			return constructor.newInstance(system, id);
-		} catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException
-				| IllegalArgumentException | InvocationTargetException e) {
+		} catch (NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException | IllegalArgumentException
+				| InvocationTargetException e) {
 			throw new RoboBuilderException("Could not instantiate robo unit.", e);
 		}
 	}
 
-	private RoboUnit<?> instantiateAndInitialize(Class<? extends RoboUnit<?>> clazz, String id,
-			Configuration configuration) throws RoboBuilderException {
+	private RoboUnit<?> instantiateAndInitialize(Class<? extends RoboUnit<?>> clazz, String id, Configuration configuration)
+			throws RoboBuilderException {
 		RoboUnit<?> unit = instantiateRoboUnit(clazz, id);
 		if (configuration != null) {
 			try {

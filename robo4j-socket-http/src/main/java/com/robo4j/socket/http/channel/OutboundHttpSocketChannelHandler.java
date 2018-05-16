@@ -35,14 +35,13 @@ import java.nio.channels.ByteChannel;
  * @author Marcus Hirt (@hirt)
  * @author Miro Wengner (@miragemiko)
  */
-public class OutboundHttpSocketChannelHandler implements ChannelHandler {
+public class OutboundHttpSocketChannelHandler implements ChannelHandler, AutoCloseable {
 
 	private ByteChannel byteChannel;
 	private HttpDecoratedRequest message;
 	private HttpDecoratedResponse decoratedResponse;
 
-	public OutboundHttpSocketChannelHandler(ByteChannel byteChannel,
-											HttpDecoratedRequest message) {
+	public OutboundHttpSocketChannelHandler(ByteChannel byteChannel, HttpDecoratedRequest message) {
 		this.byteChannel = byteChannel;
 		this.message = message;
 	}
@@ -50,7 +49,8 @@ public class OutboundHttpSocketChannelHandler implements ChannelHandler {
 	@Override
 	public void start() {
 		// FIXME: 1/24/18 (miro) -> client context
-		final ClientPathDTO pathMethod = new ClientPathDTO(message.getPath(), message.getMethod(), message.getCallbacks());
+		final ClientPathDTO pathMethod = new ClientPathDTO(message.getPathMethod().getPath(), message.getPathMethod().getMethod(),
+				message.getCallbacks());
 
 		//@formatter:off
 		final String resultMessage = HttpMessageBuilder.Build()

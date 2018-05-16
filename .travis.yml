@@ -1,3 +1,6 @@
+env:
+  global:
+    - TIMEOUT=5000
 language: java
 script: gradlew clean build
 jdk: oraclejdk8

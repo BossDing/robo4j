@@ -14,22 +14,43 @@
  * You should have received a copy of the GNU General Public License
  * along with Robo4J. If not, see <http://www.gnu.org/licenses/>.
  */
+package com.robo4j.units.rpi.lcd;
 
-package com.robo4j.net;
+import com.robo4j.RoboReference;
+import com.robo4j.scheduler.Scheduler;
 
 import java.io.IOException;
-import java.io.OutputStream;
 
 /**
+ * Superclass for the demos.
+ * 
  * @author Marcus Hirt (@hirt)
  * @author Miroslav Wengner (@miragemiko)
  */
-public class MessageOutputStream extends OutputStream {
+public abstract class AbstractLcdDemo implements LcdDemo {
 
-	@Override
-	public void write(int b) throws IOException {
-		// TODO Auto-generated method stub
+	protected RoboReference<LcdMessage> lcd;
+	protected Scheduler scheduler;
+	private volatile boolean isRunning;
 
+	AbstractLcdDemo(Scheduler scheduler, RoboReference<LcdMessage> lcd) {
+		this.scheduler = scheduler;
+		this.lcd = lcd;
 	}
 
+	@Override
+	public void run() throws IOException {
+		isRunning = true;
+		runDemo();
+	}
+
+	public boolean isRunning() {
+		return isRunning;
+	}
+
+	protected abstract void runDemo() throws IOException;
+
+	void setDone() {
+		isRunning = false;
+	}
 }

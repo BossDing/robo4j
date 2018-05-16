@@ -24,13 +24,23 @@ import java.util.Map;
  * @author Marcus Hirt (@hirt)
  * @author Miroslav Wengner (@miragemiko)
  */
-public final class RoboContextDescriptor {
+public class RoboContextDescriptor {
 	public static final String KEY_URI = "uri";
-	
+
 	private final String id;
 	private final int heartBeatInterval;
 	private final Map<String, String> metaData;
 
+	/**
+	 * Constructor.
+	 * 
+	 * @param id
+	 *            the robo reference id.
+	 * @param heartBeatInterval
+	 *            how often to send a heart beat
+	 * @param metaData
+	 *            the metadata describing the RoboContext.
+	 */
 	public RoboContextDescriptor(String id, int heartBeatInterval, Map<String, String> metaData) {
 		this.id = id;
 		this.heartBeatInterval = heartBeatInterval;

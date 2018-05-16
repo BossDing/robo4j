@@ -25,11 +25,16 @@ import com.robo4j.RoboUnit;
 import java.util.Objects;
 
 /**
+ * AbstractSpringUnit provides spring framework support. When the unit is used
+ * inside another RoboUnit, it is required to check spring support availability.
+ * It means whether RoboSpringUnit is available inside the RoboContext
+ *
  * @param <T>
  *            robo unit type
  * @author Marcus Hirt (@hirt)
  * @author Miroslav Wengner (@miragemiko)
  */
+// TODO: 3/15/18 (miro) -> changed it to  proper spring integration
 public class AbstractSpringUnit<T> extends RoboUnit<T> {
 
 	private RoboReference<?> registerUnit;

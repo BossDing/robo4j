@@ -120,10 +120,11 @@ public class MessageServer {
 	}
 
 	/**
-	 * Constructor.
+	 * Constructor
 	 *
 	 * @param callback
 	 *            message callback
+	 *
 	 * @param configuration
 	 *            configuration
 	 */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, 2017, Marcus Hirt, Miroslav Wengner
+ * Copyright (c) 2014, 2018, Marcus Hirt, Miroslav Wengner
  *
  * Robo4J is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,22 +14,35 @@
  * You should have received a copy of the GNU General Public License
  * along with Robo4J. If not, see <http://www.gnu.org/licenses/>.
  */
+package com.robo4j.units.rpi.lcd;
 
-package com.robo4j.net;
+import com.robo4j.RoboContext;
+import com.robo4j.RoboReference;
 
-import org.junit.runners.BlockJUnit4ClassRunner;
-import org.junit.runners.model.InitializationError;
+import java.io.IOException;
 
 /**
- * Lookup service JUnit runner configures test System environment properties
- *
+ * This one really doesn't anything but clean up and exit.
+ * 
  * @author Marcus Hirt (@hirt)
  * @author Miroslav Wengner (@miragemiko)
  */
-public class LookupServiceTestRunner extends BlockJUnit4ClassRunner {
+public class ExitDemo extends AbstractLcdDemo {
 
-    public LookupServiceTestRunner(Class<?> clazz) throws InitializationError {
-		super(clazz);
-		System.setProperty("java.net.preferIPv4Stack", "true");
+	private RoboContext ctx;
+	public ExitDemo(RoboContext ctx, RoboReference<LcdMessage> lcd) {
+		super(null, lcd);
+		this.ctx = ctx;
 	}
+
+	@Override
+	public String getName() {
+		return "<Exit>";
+	}
+
+	@Override
+	public void runDemo() throws IOException {
+		ctx.shutdown();
+	}
+
 }

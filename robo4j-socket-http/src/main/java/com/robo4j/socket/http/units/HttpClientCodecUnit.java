@@ -2,6 +2,7 @@ package com.robo4j.socket.http.units;
 
 import com.robo4j.CriticalSectionTrait;
 import com.robo4j.RoboContext;
+import com.robo4j.socket.http.HttpMethod;
 import com.robo4j.socket.http.HttpVersion;
 import com.robo4j.socket.http.message.HttpDecoratedRequest;
 import com.robo4j.socket.http.message.HttpRequestDenominator;
@@ -29,17 +30,13 @@ public final class HttpClientCodecUnit extends AbstractClientCodecUnit {
 				.containsEncoder(message.getClazz()) ? processMessage(message.getClazz(), message.getMessage())
 						: processMessage(String.class, message.toString());
 
-		ClientPathConfig pathConfig = clientContext.getPathConfig(message.getPath());
+		ClientPathConfig pathConfig = clientContext.getPathConfig(new PathHttpMethod(message.getPath(), HttpMethod.POST));
 		final HttpRequestDenominator denominator = new HttpRequestDenominator(pathConfig.getMethod(), pathConfig.getPath(),
 				HttpVersion.HTTP_1_1);
 		final HttpDecoratedRequest request = new HttpDecoratedRequest(denominator);
 		request.addMessage(encodedMessage);
 
-		// FIXME: 1/27/18 (miro) -> fix null list
-		if (pathConfig.getCallbacks() != null) {
-			request.addCallbacks(pathConfig.getCallbacks());
-		}
-
+		request.addCallbacks(pathConfig.getCallbacks());
 		getContext().getReference(target).sendMessage(request);
 	}
 

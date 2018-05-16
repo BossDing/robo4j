@@ -16,6 +16,7 @@
  */
 package com.robo4j.hw.rpi.imu;
 
+import com.pi4j.io.i2c.I2CBus;
 import com.robo4j.hw.rpi.imu.BNO055Device.OperatingMode;
 import com.robo4j.math.geometry.Tuple3f;
 
@@ -47,7 +48,7 @@ public class BNO055Example {
 				Tuple3f orientation = device.read();
 				float temperature = device.getTemperature();
 
-				System.out.println(String.format("heading: %f, roll: %f, pitch: %f - temp:%f", orientation.x,
+				System.out.println(String.format("heading(x): %f, roll(y): %f, pitch(z): %f - temp:%f", orientation.x,
 						orientation.y, orientation.z, temperature));
 			} catch (Throwable e) {
 				e.printStackTrace();
@@ -68,19 +69,20 @@ public class BNO055Example {
 	 *             exception
 	 */
 	public static void main(String[] args) throws IOException, InterruptedException {
+		int delay = 200;
 		System.out.println("Starting the BNO055 Example.");
-		BNO055Device bno = BNO055Factory.createDefaultSerialDevice();
-		Thread.sleep(20);
+		BNO055Device bno = BNO055Factory.createDevice(I2CBus.BUS_1, 0x28, OperatingMode.NDOF);
+		Thread.sleep(delay);
 
 		System.out.println("Resetting device...");
 		bno.reset();
-		Thread.sleep(20);
+		Thread.sleep(delay);
 
 		System.out.println("Running Self Test...");
 		BNO055SelfTestResult testResult = bno.performSelfTest();
 		System.out.println("Result of self test: ");
 		System.out.println(testResult);
-		Thread.sleep(20);
+		Thread.sleep(delay);
 
 		System.out.println("Operating mode: " + bno.getOperatingMode());
 		if (bno.getOperatingMode() != OperatingMode.NDOF) {

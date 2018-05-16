@@ -32,7 +32,7 @@ public interface BNO055Device {
 	/**
 	 * The power mode can be used to
 	 */
-	public enum PowerMode {
+	enum PowerMode {
 		//@formatter:off
 		/**
 		 * All sensors for the selected {@link OperatingMode} are always switched on.
@@ -78,7 +78,7 @@ public interface BNO055Device {
 	 * that, if the default constructor is chosen, the BNO055Device will use NDOF by
 	 * default.
 	 */
-	public enum OperatingMode {
+	enum OperatingMode {
 		//@formatter:off
 		/**
 		 * This mode is used to configure BNO, wherein all output data is reset to zero and sensor
@@ -196,7 +196,7 @@ public interface BNO055Device {
 		}
 	}
 
-	public enum Unit {
+	enum Unit {
 		/**
 		 * Acceleration unit (meter per seconds squared)
 		 */
@@ -247,7 +247,7 @@ public interface BNO055Device {
 	/**
 	 * Describes how Euler angle results are defined.
 	 */
-	public enum OrientationMode {
+	enum OrientationMode {
 		/**
 		 * Pitch: -180° to +180° (turing clockwise increases values) Roll: -90° to +90°
 		 * (increasing with increasing inclination) Heading (Yaw): 0° to 360° (turning

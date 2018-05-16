@@ -398,7 +398,7 @@ public abstract class AbstractBNO055Device implements BNO055Device {
 
 	protected void initialize(OperatingMode operatingMode) throws IOException {
 		// First check that we are really communicating with the BNO.
-		if (read(REGISTER_CHIP_ID) != CHIP_ID_VALUE) {
+		if (Integer.toHexString(read(REGISTER_CHIP_ID)).equals(Integer.toBinaryString(CHIP_ID_VALUE))) {
 			throw new IOException("Not a BNO connected to the defined endpoint!");
 		}
 

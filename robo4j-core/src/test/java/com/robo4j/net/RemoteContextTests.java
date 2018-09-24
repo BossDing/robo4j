@@ -24,7 +24,7 @@ import com.robo4j.RoboReference;
 import com.robo4j.StringConsumer;
 import com.robo4j.StringProducerRemote;
 import com.robo4j.configuration.Configuration;
-import com.robo4j.configuration.ConfigurationFactory;
+import com.robo4j.configuration.ConfigurationBuilder;
 import com.robo4j.util.SystemUtil;
 import org.junit.Assert;
 import org.junit.Ignore;
@@ -48,7 +48,7 @@ public class RemoteContextTests {
 	private static final int NUMBER_ITERATIONS = 10;
 	private static final String REMOTE_CONTEXT_RECEIVER = "remoteReceiver";
 	public static final String UNIT_STRING_CONSUMER = "stringConsumer";
-	public static final String UNIT_REMOTE_RECEIVER = "remoteReceiver";
+	public static final String CONTEXT_ID_REMOTE_RECEIVER = "remoteReceiver";
 
 	@Test
 	public void testDiscoveryOfDiscoveryEnabledRoboContext() throws RoboBuilderException, IOException {
@@ -79,8 +79,7 @@ public class RemoteContextTests {
 		receiverCtx.start();
 
 		// Note that all this cludging about with local lookup service
-		// implementations
-		// etc would normally not be needed.
+		// implementations etc would normally not be needed.
 		// This is just to isolate this test from other tests.
 		final LocalLookupServiceImpl localLookup = new LocalLookupServiceImpl();
 		final LookupService service = LookupServiceTests.getLookupService(localLookup);
@@ -159,14 +158,11 @@ public class RemoteContextTests {
 	@Test
 	@SuppressWarnings("unchecked")
 	public void testMessageToDiscoveredContextAndReferenceToDiscoveredContext() throws Exception {
-
-		// consumer system
-		RoboContext receiverSystem = buildReceiverSystem();
+		RoboContext receiverSystem = buildReceiverSystem(ACK_CONSUMER);
 		RoboReference<TestMessageType> ackConsumer = receiverSystem.getReference(ACK_CONSUMER);
 
 		// Note that all this cludging about with local lookup service
-		// implementations
-		// etc would normally not be needed.
+		// implementations etc would normally not be needed.
 		// This is just to isolate this test from other tests.
 		final LocalLookupServiceImpl localLookup = new LocalLookupServiceImpl();
 		final LookupService service = LookupServiceTests.getLookupService(localLookup);
@@ -175,14 +171,13 @@ public class RemoteContextTests {
 		service.start();
 
 		// context has been discovered
-		RoboContextDescriptor descriptor = getRoboContextDescriptor(service, UNIT_REMOTE_RECEIVER);
+		RoboContextDescriptor contextDescriptor = getRoboContextDescriptor(service, CONTEXT_ID_REMOTE_RECEIVER);
 		Assert.assertTrue(service.getDiscoveredContexts().size() > 0);
-		Assert.assertNotNull(descriptor);
+		Assert.assertNotNull(contextDescriptor);
 
 		// build the producer system
-		RoboContext producerEmitterSystem = buildConsumerEmitterSystem(TestMessageType.class, ACK_CONSUMER);
+		RoboContext producerEmitterSystem = buildEmitterSystem(TestMessageType.class, ACK_CONSUMER, REMOTE_UNIT_EMITTER);
 		localLookup.addContext(producerEmitterSystem);
-
 		producerEmitterSystem.start();
 
 		RoboReference<String> remoteTestMessageProducer = producerEmitterSystem.getReference(REMOTE_UNIT_EMITTER);
@@ -198,15 +193,15 @@ public class RemoteContextTests {
 		CountDownLatch producerCountDownLatch = remoteTestMessageProducer
 				.getAttribute(RemoteTestMessageProducer.DESCRIPTOR_COUNT_DOWN_LATCH).get();
 		producerCountDownLatch.await();
+		CountDownLatch producerAckLatch = remoteTestMessageProducer.getAttribute(RemoteTestMessageProducer.DESCRIPTOR_ACK_LATCH).get();
+		producerAckLatch.await();
 		Integer producerAcknowledge = remoteTestMessageProducer.getAttribute(RemoteTestMessageProducer.DESCRIPTOR_ACKNOWLEDGE).get();
 		Assert.assertTrue(producerAcknowledge > 0);
-
 	}
 
 	@Ignore
 	@Test
 	public void startRemoteReceiver() throws Exception {
-		// consumer system
 		buildReceiverSystemStringConsumer();
 
 		final LocalLookupServiceImpl localLookup = new LocalLookupServiceImpl();
@@ -221,8 +216,7 @@ public class RemoteContextTests {
 	@Test
 	public void startRemoteSender() throws Exception {
 		// Note that all this cludging about with local lookup service
-		// implementations
-		// etc would normally not be needed.
+		// implementations etc would normally not be needed.
 		// This is just to isolate this test from other tests.
 		final LocalLookupServiceImpl localLookup = new LocalLookupServiceImpl();
 		final LookupService service = LookupServiceTests.getLookupService(localLookup);
@@ -231,12 +225,12 @@ public class RemoteContextTests {
 		service.start();
 
 		// context has been discovered
-		RoboContextDescriptor descriptor = getRoboContextDescriptor(service, UNIT_REMOTE_RECEIVER);
+		RoboContextDescriptor descriptor = getRoboContextDescriptor(service, CONTEXT_ID_REMOTE_RECEIVER);
 		Assert.assertTrue(service.getDiscoveredContexts().size() > 0);
 		Assert.assertNotNull(descriptor);
 
 		// build the producer system
-		RoboContext producerEmitterSystem = buildConsumerEmitterSystem(String.class, UNIT_STRING_CONSUMER);
+		RoboContext producerEmitterSystem = buildEmitterSystem(String.class, UNIT_STRING_CONSUMER, REMOTE_UNIT_EMITTER);
 		localLookup.addContext(producerEmitterSystem);
 
 		producerEmitterSystem.start();
@@ -249,40 +243,43 @@ public class RemoteContextTests {
 		System.in.read();
 	}
 
-	private <T> RoboContext buildConsumerEmitterSystem(Class<T> clazz, String target) throws Exception {
+	private <T> RoboContext buildEmitterSystem(Class<T> clazz, String target, String unitName) throws Exception {
 		RoboBuilder builder = new RoboBuilder(SystemUtil.getInputStreamByResourceName("testMessageEmitterSystem_8.xml"));
 
 		if (clazz.equals(String.class)) {
 			StringProducerRemote<T> remoteTestMessageProducer = new StringProducerRemote<>(clazz, builder.getContext(),
-					REMOTE_UNIT_EMITTER);
+					unitName);
 			remoteTestMessageProducer.initialize(getEmitterConfiguration(REMOTE_CONTEXT_RECEIVER, target));
 			builder.add(remoteTestMessageProducer);
 		}
 		if (clazz.equals(TestMessageType.class)) {
-			RemoteTestMessageProducer remoteTestMessageProducer = new RemoteTestMessageProducer(builder.getContext(), REMOTE_UNIT_EMITTER);
+			RemoteTestMessageProducer remoteTestMessageProducer = new RemoteTestMessageProducer(builder.getContext(), unitName);
 			remoteTestMessageProducer.initialize(getEmitterConfiguration(REMOTE_CONTEXT_RECEIVER, target));
 			builder.add(remoteTestMessageProducer);
 		}
 		return builder.build();
 	}
 
-	private RoboContext buildReceiverSystem() throws RoboBuilderException, ConfigurationException {
+	/*
+	 * Builds a system ready to receive TestMessageType messages, which contains
+	 * a reference to which the String message "acknowledge" will be sent when a
+	 * message is received.
+	 */
+	private RoboContext buildReceiverSystem(String name) throws RoboBuilderException, ConfigurationException {
 		RoboBuilder builder = new RoboBuilder(SystemUtil.getInputStreamByResourceName("testRemoteReceiver.xml"));
-		Configuration configuration = ConfigurationFactory.createEmptyConfiguration();
-		configuration.setInteger("totalNumberMessages", 1);
-		AckingStringConsumer ackConsumer = new AckingStringConsumer(builder.getContext(), ACK_CONSUMER);
-		ackConsumer.initialize(configuration);
-
-		builder.add(ackConsumer);
+		Configuration configuration = new ConfigurationBuilder().addInteger(AckingStringConsumer.ATTR_TOTAL_NUMBER_MESSAGES, 1).build();
+		builder.add(AckingStringConsumer.class, configuration, name);
 		RoboContext receiverSystem = builder.build();
 		receiverSystem.start();
 		return receiverSystem;
 	}
 
+	/*
+	 * Builds a system ready to receive strings.
+	 */
 	private RoboContext buildReceiverSystemStringConsumer() throws RoboBuilderException, ConfigurationException {
 		RoboBuilder builder = new RoboBuilder(SystemUtil.getInputStreamByResourceName("testRemoteReceiver.xml"));
-		Configuration configuration = ConfigurationFactory.createEmptyConfiguration();
-		configuration.setInteger("totalNumberMessages", 1);
+		Configuration configuration = new ConfigurationBuilder().addInteger("totalNumberMessages", 1).build();
 		StringConsumer stringConsumer = new StringConsumer(builder.getContext(), UNIT_STRING_CONSUMER);
 		stringConsumer.initialize(configuration);
 
@@ -304,10 +301,8 @@ public class RemoteContextTests {
 	}
 
 	private Configuration getEmitterConfiguration(String targetContext, String target) {
-		Configuration configuration = ConfigurationFactory.createEmptyConfiguration();
-		configuration.setString("target", target);
-		configuration.setString("targetContext", targetContext);
-		configuration.setInteger("totalNumberMessages", 1);
+		Configuration configuration = new ConfigurationBuilder().addString("target", target).addString("targetContext", targetContext)
+				.addInteger("totalNumberMessages", 1).build();
 		return configuration;
 	}
 

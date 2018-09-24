@@ -26,36 +26,38 @@ public class Point2f {
 	/**
 	 * Range in meters
 	 */
-	private float range;
-	
+	private final float range;
+
 	/**
 	 * Angle in radians
 	 */
-	private float angle;
-	
-	private float x;
-	private float y;
-	
+	private final float angle;
+
+	private final float x;
+	private final float y;
+
 	/**
 	 * Constructor.
 	 * 
-	 * @param range in meters
-	 * @param angle in radians
+	 * @param range
+	 *            in meters
+	 * @param angle
+	 *            in radians
 	 */
-	public Point2f(float range, float angle) {
+	Point2f(float range, float angle, float x, float y) {
 		this.range = range;
 		this.angle = angle;
-		this.x = (float) Math.sin(angle) * range;
-		this.y = (float) Math.cos(angle) * range;
+		this.x = x;
+		this.y = y;
 	}
-	
+
 	/**
 	 * @return the range in meters
 	 */
 	public float getRange() {
 		return range;
 	}
-	
+
 	/**
 	 * @return the angle in radians.
 	 */
@@ -66,25 +68,25 @@ public class Point2f {
 	/**
 	 * @return X value, in meters.
 	 */
-	public double getX() {
+	public float getX() {
 		return x;
 	}
 
 	/**
 	 * @return Y value, in meters.
 	 */
-	public double getY() {
+	public float getY() {
 		return y;
 	}
-	
+
 	public boolean closer(Point2f p) {
 		return this.range <= p.getRange();
 	}
-	
+
 	public boolean farther(Point2f p) {
 		return this.range > p.getRange();
 	}
-	
+
 	public String toString() {
 		return String.format("x:%2.1f, y:%2.1f, range:%2.1f, angle:%2.1f", x, y, range, Math.toDegrees(angle));
 	}
@@ -123,10 +125,41 @@ public class Point2f {
 	/**
 	 * A positive value denoting the difference in range to the two points.
 	 * 
-	 * @param p the point to compare with
+	 * @param p
+	 *            the point to compare with.
 	 * @return zero or above.
 	 */
 	public double rangeDifference(Point2f p) {
 		return Math.abs(p.getRange() - getRange());
+	}
+
+	/**
+	 * Factory method for creating a point from polar coordinates.
+	 * 
+	 * @param range
+	 *            the range.
+	 * @param angle
+	 *            the angle.
+	 * @return the resulting point.
+	 */
+	public static Point2f fromPolar(float range, float angle) {
+		float x = (float) Math.sin(angle) * range;
+		float y = (float) Math.cos(angle) * range;
+		return new Point2f(range, angle, x, y);
+	}
+
+	/**
+	 * Factory method for creating a point from cartesian coordinates.
+	 * 
+	 * @param x
+	 *            the x value.
+	 * @param y
+	 *            the y value.
+	 * @return the resulting point.
+	 */
+	public static Point2f fromCartesian(float x, float y) {
+		float range = (float) Math.sqrt(x * x + y * y);
+		float angle = (float) Math.atan(x / y);
+		return new Point2f(range, angle, x, y);
 	}
 }

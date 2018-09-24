@@ -16,6 +16,7 @@
  */
 package com.robo4j.math.features;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import com.robo4j.math.geometry.CurvaturePoint2f;
@@ -30,8 +31,9 @@ import com.robo4j.math.geometry.Point2f;
 public class Raycast {
 
 	/**
-	 * Finds the farthest point that should be reachable without having to turn
-	 * once aligned in the proper direction.
+	 * Finds the farthest point reachable in a straight line that can be reached
+	 * without the vehicle having to adjust course (to avoid touching
+	 * something).
 	 * 
 	 * @param points
 	 *            the points to search.
@@ -44,7 +46,7 @@ public class Raycast {
 	 *            a previously extracted feature set, so that corners are known.
 	 * @return the "optimal" point.
 	 */
-	public static Point2f raycastMostPromisingPoint(List<Point2f> points, float noGoRadius, float raycastStepAngle, FeatureSet features) {
+	public static Point2f raycastFarthestPoint(List<Point2f> points, float noGoRadius, float raycastStepAngle, FeatureSet features) {
 		float startAlpha = points.get(0).getAngle();
 		float endAlpha = points.get(points.size() - 1).getAngle();
 
@@ -52,7 +54,7 @@ public class Raycast {
 		float resultAlpha = 0;
 
 		for (float alpha = startAlpha; alpha <= endAlpha; alpha += raycastStepAngle) {
-			float range = raycast(points, features.getCorners(), alpha, noGoRadius);
+			float range = raycastSingle(points, features.getCorners(), alpha, noGoRadius);
 			if (range == Float.MAX_VALUE) {
 				continue;
 			}
@@ -61,7 +63,38 @@ public class Raycast {
 				resultAlpha = alpha;
 			}
 		}
-		return new Point2f(resultRange, resultAlpha);
+		return Point2f.fromPolar(resultRange, resultAlpha);
+	}
+
+	/**
+	 * Calculates rays, starting in origo. Returns all the points where the rays
+	 * hit.
+	 * 
+	 * @param points
+	 *            the points where the rays hit.
+	 * @param noGoRadius
+	 *            the closest allowable distance to a point.
+	 * 
+	 * @param raycastStepAngle
+	 *            the angle to use between rays.
+	 * 
+	 * @param features
+	 *            the calculated features (e.g. for corner avoidance).
+	 * 
+	 * @return the points where the rays hit.
+	 */
+	public static List<Point2f> raycastFull(List<Point2f> points, float noGoRadius, float raycastStepAngle, FeatureSet features) {
+		float startAlpha = points.get(0).getAngle();
+		float endAlpha = points.get(points.size() - 1).getAngle();
+
+		float approximateNumberOfRays = (endAlpha - startAlpha) / raycastStepAngle;
+		List<Point2f> rays = new ArrayList<Point2f>((int) Math.ceil(approximateNumberOfRays));
+
+		for (float alpha = startAlpha; alpha <= endAlpha; alpha += raycastStepAngle) {
+			float range = raycastSingle(points, features.getCorners(), alpha, noGoRadius);
+			rays.add(Point2f.fromPolar(range, alpha));
+		}
+		return rays;
 	}
 
 	/**
@@ -75,37 +108,49 @@ public class Raycast {
 	 *            the points known to be corners.
 	 * @param rayAlpha
 	 *            the angle to emit the ray at.
-	 * @param noGoRadius
+	 * @param defaultNoGoRadius
 	 *            the radius around a known point to avoid.
 	 * @return the distance at which the ray hit something.
 	 */
-	public static float raycast(List<Point2f> points, List<CurvaturePoint2f> corners, float rayAlpha, float noGoRadius) {
+	public static float raycastSingle(List<Point2f> points, List<CurvaturePoint2f> corners, float rayAlpha, float defaultNoGoRadius) {
 		float minIntersectionRange = Float.MAX_VALUE;
+		float currentNoGoRadius = defaultNoGoRadius;
 		for (Point2f p : points) {
-			int cornerIndex = corners.indexOf(p);
-			if (cornerIndex >= 0) {
-				p = corners.get(cornerIndex);
-				noGoRadius = calculateNoGoRadius(p, noGoRadius);
+			CurvaturePoint2f cornerPoint = getMatchingCornerPoint(corners, p);
+			if (cornerPoint != null) {
+				currentNoGoRadius = calculateNoGoRadius(cornerPoint, defaultNoGoRadius);
+			} else {
+				currentNoGoRadius = defaultNoGoRadius;
 			}
 			float tangentDistance = calculateTangentDistance(rayAlpha, p);
 			// Fast rejection
-			if (Math.abs(tangentDistance) >= noGoRadius) {
+			if (Math.abs(tangentDistance) >= currentNoGoRadius) {
 				continue;
 			}
-			float intersectionRange = calculateIntersectionRange(rayAlpha, noGoRadius, tangentDistance, p);
-			if (intersectionRange != Float.NaN) {
+			float intersectionRange = calculateIntersectionRange(rayAlpha, currentNoGoRadius, tangentDistance, p);
+			if (!Float.isNaN(intersectionRange)) {
 				minIntersectionRange = Math.min(minIntersectionRange, intersectionRange);
 			}
 		}
 		return minIntersectionRange;
 	}
 
-	public static Point2f raycastAtAngle(List<Point2f> points, float startAngle, float endAngle, float step, float noGoRadius, FeatureSet features) {		
+	private static CurvaturePoint2f getMatchingCornerPoint(List<CurvaturePoint2f> corners, Point2f p) {
+		for (CurvaturePoint2f cp : corners) {
+			if (cp.getX() == p.getX() && cp.getY() == p.getY()) {
+				return cp;
+			}
+		}
+		return null;
+	}
+
+	public static Point2f raycastAtAngle(List<Point2f> points, float startAngle, float endAngle, float step, float noGoRadius,
+			FeatureSet features) {
 		float resultRange = Float.MIN_VALUE;
 		float resultAlpha = 0;
-		
+
 		for (float alpha = startAngle; alpha <= endAngle; alpha += step) {
-			float range = raycast(points, features.getCorners(), alpha, noGoRadius);
+			float range = raycastSingle(points, features.getCorners(), alpha, noGoRadius);
 			if (range == Float.MAX_VALUE) {
 				continue;
 			}
@@ -114,9 +159,9 @@ public class Raycast {
 				resultAlpha = alpha;
 			}
 		}
-		return new Point2f(resultRange, resultAlpha);
+		return Point2f.fromPolar(resultRange, resultAlpha);
 	}
-	
+
 	/**
 	 * Calculate the range at which a point is hit by the ray.
 	 */
@@ -133,7 +178,7 @@ public class Raycast {
 	 */
 	private static float calculateTangentDistance(float rayAlpha, Point2f p) {
 		float deltaAlpha = Math.abs(p.getAngle() - rayAlpha);
-		if (deltaAlpha >= 90.0) {
+		if (deltaAlpha >= Math.PI / 2) {
 			return Float.MAX_VALUE;
 		}
 		return (float) (p.getRange() * Math.atan(deltaAlpha));
@@ -141,16 +186,14 @@ public class Raycast {
 
 	/**
 	 * Avoid corners a bit more than other points...
+	 * 
+	 * @param corners
 	 */
-	private static float calculateNoGoRadius(Point2f p, float noGoRadius) {
-		if (p instanceof CurvaturePoint2f) {
-			CurvaturePoint2f cp = (CurvaturePoint2f) p;
-			if (cp.getCurvature() < 0) {
-				return noGoRadius;
-			} else {
-				return (float) (Math.sin(Math.PI - cp.getCurvature()) * noGoRadius * 1.5) + noGoRadius;
-			}
+	private static float calculateNoGoRadius(CurvaturePoint2f point, float noGoRadius) {
+		if (point.getCurvature() < 0) {
+			return noGoRadius;
+		} else {
+			return (float) (Math.sin(Math.PI - point.getCurvature()) * noGoRadius * 1.5) + noGoRadius;
 		}
-		return noGoRadius;
 	}
 }

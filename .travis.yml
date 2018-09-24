@@ -1,6 +1,9 @@
 env:
   global:
     - TIMEOUT=5000
+addons:
+  hosts:
+  - localhost
 language: java
 script: gradlew clean build
 jdk: oraclejdk8

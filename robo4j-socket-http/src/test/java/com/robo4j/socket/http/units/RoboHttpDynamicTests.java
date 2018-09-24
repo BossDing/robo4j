@@ -24,7 +24,7 @@ import com.robo4j.RoboBuilder;
 import com.robo4j.RoboContext;
 import com.robo4j.RoboReference;
 import com.robo4j.configuration.Configuration;
-import com.robo4j.configuration.ConfigurationFactory;
+import com.robo4j.configuration.ConfigurationBuilder;
 import com.robo4j.socket.http.HttpMethod;
 import com.robo4j.socket.http.HttpVersion;
 import com.robo4j.socket.http.message.HttpDecoratedRequest;
@@ -62,7 +62,7 @@ public class RoboHttpDynamicTests {
 	private static final String ID_CLIENT_UNIT = "httpClient";
 	private static final String ID_TARGET_UNIT = "controller";
 	private static final int MESSAGES_NUMBER = 42;
-	private static final String HOST_SYSTEM = "0.0.0.0";
+	private static final String HOST_SYSTEM = "localhost";
 	static final String JSON_STRING = "{\"value\":\"stop\"}";
 	private static final String DECORATED_PRODUCER = "decoratedProducer";
 
@@ -92,13 +92,11 @@ public class RoboHttpDynamicTests {
 		/* client system sending a messages to the main system */
 		RoboReference<Object> decoratedProducer = clientSystem.getReference(DECORATED_PRODUCER);
 		decoratedProducer.sendMessage(MESSAGES_NUMBER);
-		CountDownLatch countDownLatchDecoratedProducer = decoratedProducer
-				.getAttribute(StringConsumer.DESCRIPTOR_COUNT_DOWN_LATCH).get();
+		CountDownLatch countDownLatchDecoratedProducer = decoratedProducer.getAttribute(StringConsumer.DESCRIPTOR_COUNT_DOWN_LATCH).get();
 		countDownLatchDecoratedProducer.await(TIMEOUT, TIME_UNIT);
 
 		final RoboReference<String> stringConsumer = mainSystem.getReference(StringConsumer.NAME);
-		final CountDownLatch countDownLatch = stringConsumer.getAttribute(StringConsumer.DESCRIPTOR_COUNT_DOWN_LATCH)
-				.get();
+		final CountDownLatch countDownLatch = stringConsumer.getAttribute(StringConsumer.DESCRIPTOR_COUNT_DOWN_LATCH).get();
 		countDownLatch.await(TIMEOUT, TIME_UNIT);
 		final int receivedMessages = stringConsumer.getAttribute(StringConsumer.DESCRIPTOR_MESSAGES_NUMBER_TOTAL).get();
 
@@ -132,8 +130,7 @@ public class RoboHttpDynamicTests {
 
 		Thread.sleep(1000);
 		for (int i = 0; i < 1; i++) {
-			HttpRequestDenominator denominator = new HttpRequestDenominator(HttpMethod.GET, "/noparams",
-					HttpVersion.HTTP_1_1);
+			HttpRequestDenominator denominator = new HttpRequestDenominator(HttpMethod.GET, "/noparams", HttpVersion.HTTP_1_1);
 			HttpDecoratedRequest request = new HttpDecoratedRequest(denominator);
 			request.addCallback(StringConsumer.NAME);
 			httpClient.sendMessage(request);
@@ -150,19 +147,16 @@ public class RoboHttpDynamicTests {
 		/* tested system configuration */
 		RoboBuilder builder = new RoboBuilder();
 
-		Configuration config = ConfigurationFactory.createEmptyConfiguration();
-		config.setInteger(PROPERTY_SOCKET_PORT, PORT);
-		config.setString("packages", "com.robo4j.socket.http.units.test.codec");
-		config.setString(PROPERTY_UNIT_PATHS_CONFIG,
-				HttpPathConfigJsonBuilder.Builder().addPath(ID_TARGET_UNIT, HttpMethod.POST).build());
+		Configuration config = new ConfigurationBuilder().addInteger(PROPERTY_SOCKET_PORT, PORT)
+				.addString("packages", "com.robo4j.socket.http.units.test.codec")
+				.addString(PROPERTY_UNIT_PATHS_CONFIG, HttpPathConfigJsonBuilder.Builder().addPath(ID_TARGET_UNIT, HttpMethod.POST).build())
+				.build();
 		builder.add(HttpServerUnit.class, config, ID_HTTP_SERVER);
 
-		config = ConfigurationFactory.createEmptyConfiguration();
-		config.setString(PROPERTY_TARGET, StringConsumer.NAME);
+		config = new ConfigurationBuilder().addString(PROPERTY_TARGET, StringConsumer.NAME).build();
 		builder.add(HttpCommandTestController.class, config, ID_TARGET_UNIT);
 
-		config = ConfigurationFactory.createEmptyConfiguration();
-		config.setInteger(StringConsumer.PROP_TOTAL_NUMBER_MESSAGES, totalMessageNumber);
+		config = new ConfigurationBuilder().addInteger(StringConsumer.PROP_TOTAL_NUMBER_MESSAGES, totalMessageNumber).build();
 		builder.add(StringConsumer.class, config, StringConsumer.NAME);
 
 		RoboContext result = builder.build();
@@ -172,8 +166,7 @@ public class RoboHttpDynamicTests {
 		Assert.assertEquals(result.getState(), LifecycleState.INITIALIZED);
 
 		result.start();
-		System.out.println(SystemUtil.printSocketEndPoint(result.getReference(ID_HTTP_SERVER),
-				result.getReference(ID_TARGET_UNIT)));
+		System.out.println(SystemUtil.printSocketEndPoint(result.getReference(ID_HTTP_SERVER), result.getReference(ID_TARGET_UNIT)));
 		return result;
 	}
 
@@ -181,9 +174,7 @@ public class RoboHttpDynamicTests {
 		/* system which is testing main system */
 		RoboBuilder result = new RoboBuilder();
 
-		Configuration config = ConfigurationFactory.createEmptyConfiguration();
-		config.setString(PROPERTY_HOST, host);
-		config.setInteger(PROPERTY_SOCKET_PORT, port);
+		Configuration config = new ConfigurationBuilder().addString(PROPERTY_HOST, host).addInteger(PROPERTY_SOCKET_PORT, port).build();
 		result.add(HttpClientUnit.class, config, ID_CLIENT_UNIT);
 		return result;
 	}
@@ -192,10 +183,9 @@ public class RoboHttpDynamicTests {
 		/* system which is testing main system */
 		RoboBuilder builder = getHttpClientRobotBuilder(HOST_SYSTEM, PORT);
 
-		Configuration config = ConfigurationFactory.createEmptyConfiguration();
-		config.setString(PROPERTY_TARGET, ID_CLIENT_UNIT);
-		config.setString(PROPERTY_UNIT_PATHS_CONFIG, "[{\"roboUnit\":\"" + ID_TARGET_UNIT + "\",\"method\":\"POST\"}]");
-		config.setString("message", JSON_STRING);
+		Configuration config = new ConfigurationBuilder().addString(PROPERTY_TARGET, ID_CLIENT_UNIT)
+				.addString(PROPERTY_UNIT_PATHS_CONFIG, "[{\"roboUnit\":\"" + ID_TARGET_UNIT + "\",\"method\":\"POST\"}]")
+				.addString("message", JSON_STRING).build();
 		builder.add(SocketMessageDecoratedProducerUnit.class, config, DECORATED_PRODUCER);
 
 		RoboContext result = builder.build();

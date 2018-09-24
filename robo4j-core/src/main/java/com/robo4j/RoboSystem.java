@@ -16,6 +16,19 @@
  */
 package com.robo4j;
 
+import com.robo4j.configuration.Configuration;
+import com.robo4j.configuration.ConfigurationBuilder;
+import com.robo4j.logging.SimpleLoggingUtil;
+import com.robo4j.net.ContextEmitter;
+import com.robo4j.net.MessageCallback;
+import com.robo4j.net.MessageServer;
+import com.robo4j.net.ReferenceDesciptor;
+import com.robo4j.net.RoboContextDescriptor;
+import com.robo4j.scheduler.DefaultScheduler;
+import com.robo4j.scheduler.RoboThreadFactory;
+import com.robo4j.scheduler.Scheduler;
+import com.robo4j.util.SystemUtil;
+
 import java.io.IOException;
 import java.io.ObjectStreamException;
 import java.io.Serializable;
@@ -37,19 +50,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
-import com.robo4j.configuration.Configuration;
-import com.robo4j.configuration.ConfigurationFactory;
-import com.robo4j.logging.SimpleLoggingUtil;
-import com.robo4j.net.ContextEmitter;
-import com.robo4j.net.MessageCallback;
-import com.robo4j.net.MessageServer;
-import com.robo4j.net.ReferenceDesciptor;
-import com.robo4j.net.RoboContextDescriptor;
-import com.robo4j.scheduler.DefaultScheduler;
-import com.robo4j.scheduler.RoboThreadFactory;
-import com.robo4j.scheduler.Scheduler;
-import com.robo4j.util.SystemUtil;
-
 /**
  * This is the default implementation for a local {@link RoboContext}. Contains
  * RoboUnits, a lookup service for references to RoboUnits, and a system level
@@ -61,19 +61,13 @@ import com.robo4j.util.SystemUtil;
 final class RoboSystem implements RoboContext {
 	private static final String NAME_BLOCKING_POOL = "Robo4J Blocking Pool";
 	private static final String NAME_WORKER_POOL = "Robo4J Worker Pool";
-	private static final String KEY_SCHEDULER_POOL_SIZE = "poolSizeScheduler";
-	private static final String KEY_WORKER_POOL_SIZE = "poolSizeWorker";
-	private static final String KEY_BLOCKING_POOL_SIZE = "poolSizeBlocking";
-
 	private static final int DEFAULT_BLOCKING_POOL_SIZE = 4;
-	private static final int DEFAULT_WORKING_POOL_SIZE = 2;
+	private static final int DEFAULT_WORKER_POOL_SIZE = 2;
 	private static final int DEFAULT_SCHEDULER_POOL_SIZE = 2;
 	private static final int KEEP_ALIVE_TIME = 10;
+
 	private static final EnumSet<LifecycleState> MESSAGE_DELIVERY_CRITERIA = EnumSet.of(LifecycleState.STARTED, LifecycleState.STOPPED,
 			LifecycleState.STOPPING);
-	private static final String KEY_CONFIGURATION_SERVER = "com.robo4j.messageServer";
-	private static final String KEY_CONFIGURATION_EMITTER = "com.robo4j.discovery";
-	private static final String KEY_CONFIGURATION_EMITTER_METADATA = "com.robo4j.discovery.metadata";
 
 	private final AtomicReference<LifecycleState> state = new AtomicReference<>(LifecycleState.UNINITIALIZED);
 	private final Map<String, RoboUnit<?>> units = new HashMap<>();
@@ -151,12 +145,17 @@ final class RoboSystem implements RoboContext {
 		@Override
 		public void sendMessage(T message) {
 			if (MESSAGE_DELIVERY_CRITERIA.contains(getState())) {
-				if (threadingPolicy != ThreadingPolicy.CRITICAL) {
+				switch (threadingPolicy) {
+				case NORMAL:
 					deliverOnQueue(message);
-				} else {
+					break;
+				case CRITICAL:
 					synchronized (unit) {
 						deliverOnQueue(message);
 					}
+					break;
+				default:
+					throw new IllegalStateException(String.format("not supported policy: %s", threadingPolicy));
 				}
 			}
 		}
@@ -165,7 +164,7 @@ final class RoboSystem implements RoboContext {
 		public String toString() {
 			return "LocalReference id: " + unit.getId() + " (system: " + uid + ")";
 		}
-		
+
 		private void deliverOnQueue(T message) {
 			switch (deliveryPolicy) {
 			case SYSTEM:
@@ -238,7 +237,7 @@ final class RoboSystem implements RoboContext {
 	 * Constructor.
 	 */
 	RoboSystem(String uid) {
-		this(uid, DEFAULT_SCHEDULER_POOL_SIZE, DEFAULT_WORKING_POOL_SIZE, DEFAULT_BLOCKING_POOL_SIZE);
+		this(uid, DEFAULT_SCHEDULER_POOL_SIZE, DEFAULT_WORKER_POOL_SIZE, DEFAULT_BLOCKING_POOL_SIZE);
 	}
 
 	/**
@@ -247,16 +246,16 @@ final class RoboSystem implements RoboContext {
 	RoboSystem(String uid, Configuration configuration) {
 		this.uid = uid;
 		this.configuration = configuration;
-		int schedulerPoolSize = configuration.getInteger(KEY_SCHEDULER_POOL_SIZE, DEFAULT_SCHEDULER_POOL_SIZE);
-		int workerPoolSize = configuration.getInteger(KEY_WORKER_POOL_SIZE, DEFAULT_WORKING_POOL_SIZE);
-		int blockingPoolSize = configuration.getInteger(KEY_BLOCKING_POOL_SIZE, DEFAULT_SCHEDULER_POOL_SIZE);
+		int schedulerPoolSize = configuration.getInteger(RoboBuilder.KEY_SCHEDULER_POOL_SIZE, DEFAULT_SCHEDULER_POOL_SIZE);
+		int workerPoolSize = configuration.getInteger(RoboBuilder.KEY_WORKER_POOL_SIZE, DEFAULT_WORKER_POOL_SIZE);
+		int blockingPoolSize = configuration.getInteger(RoboBuilder.KEY_BLOCKING_POOL_SIZE, DEFAULT_SCHEDULER_POOL_SIZE);
 		workExecutor = new ThreadPoolExecutor(workerPoolSize, workerPoolSize, KEEP_ALIVE_TIME, TimeUnit.SECONDS, workQueue,
 				new RoboThreadFactory(new ThreadGroup(NAME_WORKER_POOL), NAME_WORKER_POOL, true));
 		blockingExecutor = new ThreadPoolExecutor(blockingPoolSize, blockingPoolSize, KEEP_ALIVE_TIME, TimeUnit.SECONDS, blockingQueue,
 				new RoboThreadFactory(new ThreadGroup(NAME_BLOCKING_POOL), NAME_BLOCKING_POOL, true));
 		systemScheduler = new DefaultScheduler(this, schedulerPoolSize);
-		messageServer = initServer(configuration.getChildConfiguration(KEY_CONFIGURATION_SERVER));
-		emitterConfiguration = configuration.getChildConfiguration(KEY_CONFIGURATION_EMITTER);
+		messageServer = initServer(configuration.getChildConfiguration(RoboBuilder.KEY_CONFIGURATION_SERVER));
+		emitterConfiguration = configuration.getChildConfiguration(RoboBuilder.KEY_CONFIGURATION_EMITTER);
 	}
 
 	/**
@@ -336,8 +335,7 @@ final class RoboSystem implements RoboContext {
 		});
 		final ContextEmitter emitter = initEmitter(emitterConfiguration, getListeningURI(messageServer));
 		if (emitter != null) {
-			emitterFuture = getScheduler().scheduleAtFixedRate(() -> emitter.emit(), 0, emitter.getHeartBeatInterval(),
-					TimeUnit.MILLISECONDS);
+			emitterFuture = getScheduler().scheduleAtFixedRate(emitter::emit, 0, emitter.getHeartBeatInterval(), TimeUnit.MILLISECONDS);
 		}
 	}
 
@@ -448,7 +446,7 @@ final class RoboSystem implements RoboContext {
 		}
 		return reference;
 	}
-	
+
 	@Override
 	public String toString() {
 		return "RoboSystem id: " + uid + " unit count: " + units.size();
@@ -477,11 +475,8 @@ final class RoboSystem implements RoboContext {
 	}
 
 	private static Configuration createConfiguration(int schedulerPoolSize, int workerPoolSize, int blockingPoolSize) {
-		Configuration config = ConfigurationFactory.createEmptyConfiguration();
-		config.setInteger(KEY_SCHEDULER_POOL_SIZE, schedulerPoolSize);
-		config.setInteger(KEY_WORKER_POOL_SIZE, workerPoolSize);
-		config.setInteger(KEY_BLOCKING_POOL_SIZE, blockingPoolSize);
-		return config;
+		return new ConfigurationBuilder().addInteger(RoboBuilder.KEY_SCHEDULER_POOL_SIZE, schedulerPoolSize)
+				.addInteger(RoboBuilder.KEY_WORKER_POOL_SIZE, workerPoolSize).addInteger(RoboBuilder.KEY_BLOCKING_POOL_SIZE, blockingPoolSize).build();
 	}
 
 	private MessageServer initServer(Configuration serverConfiguration) {
@@ -517,7 +512,7 @@ final class RoboSystem implements RoboContext {
 	private RoboContextDescriptor createDescriptor(URI uri, Configuration emitterConfiguration) {
 		int heartbeatInterval = emitterConfiguration.getInteger(ContextEmitter.KEY_HEARTBEAT_INTERVAL,
 				ContextEmitter.DEFAULT_HEARTBEAT_INTERVAL);
-		Map<String, String> metadata = toStringMap(emitterConfiguration.getChildConfiguration(KEY_CONFIGURATION_EMITTER_METADATA));
+		Map<String, String> metadata = toStringMap(emitterConfiguration.getChildConfiguration(RoboBuilder.KEY_CONFIGURATION_EMITTER_METADATA));
 		metadata.put(RoboContextDescriptor.KEY_URI, uri.toString());
 		return new RoboContextDescriptor(getId(), heartbeatInterval, metadata);
 	}

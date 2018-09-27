@@ -17,8 +17,6 @@
 
 package com.robo4j.units.rpi.http.camera;
 
-import com.robo4j.AttributeDescriptor;
-import com.robo4j.DefaultAttributeDescriptor;
 import com.robo4j.RoboBuilder;
 import com.robo4j.RoboContext;
 import com.robo4j.RoboReference;
@@ -36,23 +34,19 @@ import java.util.concurrent.TimeUnit;
  * @author Miro Wengner (@miragemiko)
  */
 public class CameraImageProducerConsumerTests {
-	AttributeDescriptor<Integer> ATTRIBUTE_NUMBER_OF_IMAGES = new DefaultAttributeDescriptor<>(Integer.class,
-			CameraImageProducerDesTestUnit.ATTRIBUTE_NUMBER_OF_IMAGES_NAME);
-	AttributeDescriptor<Integer> ATTRIBUTE_COUNTER = new DefaultAttributeDescriptor<>(Integer.class,
-			CameraImageConsumerTestUnit.ATTRIBUTE_NUMBER_OF_RECEIVED_IMAGES_NAME);
 
 	@Test
 	public void cameraImageProdConTest() throws Exception {
 
 		RoboBuilder builderProducer = new RoboBuilder(
-				Thread.currentThread().getContextClassLoader().getResourceAsStream("robo4jSystemTest.xml"));
+				Thread.currentThread().getContextClassLoader().getResourceAsStream("robo4jSystemProducer.xml"));
 		InputStream clientConfigInputStream = Thread.currentThread().getContextClassLoader()
 				.getResourceAsStream("robo_camera_producer_test.xml");
 		builderProducer.add(clientConfigInputStream);
 		RoboContext producerSystem = builderProducer.build();
 
 		RoboBuilder builderConsumer = new RoboBuilder(
-				Thread.currentThread().getContextClassLoader().getResourceAsStream("robo4jSystemTest.xml"));
+				Thread.currentThread().getContextClassLoader().getResourceAsStream("robo4jSystemConsumer.xml"));
 		InputStream serverConfigInputStream = Thread.currentThread().getContextClassLoader()
 				.getResourceAsStream("robo_camera_consumer_test.xml");
 		builderConsumer.add(serverConfigInputStream);
@@ -63,24 +57,35 @@ public class CameraImageProducerConsumerTests {
 		consumerSystem.start();
 		producerSystem.start();
 
+        RoboReference<CameraMessage> imageConsumer = consumerSystem.getReference("imageProcessor");
 		RoboReference<Boolean> imageProducer = producerSystem.getReference("imageController");
-		RoboReference<CameraMessage> imageConsumer = consumerSystem.getReference("imageProcessor");
-		CountDownLatch imageConsumerLatch = imageConsumer.getAttribute(CameraImageConsumerTestUnit.DESCRIPTOR_COUNT_DOWN_LATCH).get();
 
+        CountDownLatch startConsumerLatch = imageConsumer
+                .getAttribute(CameraImageConsumerTestUnit.DESCRIPTOR_START_LATCH).get();
+        startConsumerLatch.await(5, TimeUnit.MINUTES);
 
-		Integer numberOfImages = imageProducer.getAttribute(ATTRIBUTE_NUMBER_OF_IMAGES).get();
+		Integer totalImagesProducer = imageProducer.getAttribute(CameraImageProducerDesTestUnit.DESCRIPTOR_TOTAL_IMAGES)
+				.get();
+		CountDownLatch imageProducerLatch = imageProducer
+				.getAttribute(CameraImageProducerDesTestUnit.DESCRIPTOR_GENERATED_IMAGES_LATCH).get();
+		CountDownLatch imageConsumerLatch = imageConsumer
+				.getAttribute(CameraImageConsumerTestUnit.DESCRIPTOR_IMAGES_LATCH).get();
 
-		imageConsumerLatch.await(1, TimeUnit.MINUTES);
+        System.out.println("LATCH");
+		imageProducerLatch.await(5, TimeUnit.MINUTES);
+        System.out.println("ONE");
+		imageConsumerLatch.await(5, TimeUnit.MINUTES);
+        System.out.println("TWO");
 
-        int imageConsumerReceivedNumber = imageConsumer.getAttribute(ATTRIBUTE_COUNTER).get();
-
+		Integer receivedImagesConsumer = imageConsumer
+				.getAttribute(CameraImageConsumerTestUnit.DESCRIPTOR_RECEIVED_IMAGES).get();
+		Assert.assertEquals(totalImagesProducer, receivedImagesConsumer);
 
 		RoboHttpUtils.printMeasuredTime(getClass(), "duration", startTime);
-		System.out.println("sendImages: " + numberOfImages);
+		System.out.println("receivedImagesConsumer: " + receivedImagesConsumer);
 		producerSystem.shutdown();
 		consumerSystem.shutdown();
 
-        Assert.assertTrue(imageConsumerReceivedNumber == numberOfImages);
 		System.out.println("Press any key to End...");
 
 	}

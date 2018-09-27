@@ -34,15 +34,22 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author Miro Wengner (@miragemiko)
  */
 public class CameraImageConsumerTestUnit extends RoboUnit<CameraMessage> {
-	public static final String PROP_COUNT_DOWN_LATCH = "countDownLatch";
-	public static final String ATTRIBUTE_NUMBER_OF_RECEIVED_IMAGES_NAME = "numberOfReceivedImages";
+	public static final String ATTR_IMAGES_LATCH = "messagesLatch";
+	public static final String ATTR_START_LATCH = "startLatch";
+	public static final String ATTR_RECEIVED_IMAGES = "numberOfReceivedImages";
 	public static final String PROP_TOTAL_NUMBER_MESSAGES = "totalNumberMessages";
 
-	public static final DefaultAttributeDescriptor<CountDownLatch> DESCRIPTOR_COUNT_DOWN_LATCH = DefaultAttributeDescriptor
-			.create(CountDownLatch.class, PROP_COUNT_DOWN_LATCH);
+	public static final DefaultAttributeDescriptor<CountDownLatch> DESCRIPTOR_IMAGES_LATCH = DefaultAttributeDescriptor
+			.create(CountDownLatch.class, ATTR_IMAGES_LATCH);
+    public static final DefaultAttributeDescriptor<CountDownLatch> DESCRIPTOR_START_LATCH = DefaultAttributeDescriptor
+            .create(CountDownLatch.class, ATTR_START_LATCH);
+	public static final AttributeDescriptor<Integer> DESCRIPTOR_RECEIVED_IMAGES = new DefaultAttributeDescriptor<>(
+			Integer.class, ATTR_RECEIVED_IMAGES);
 
-	private final AtomicInteger counter = new AtomicInteger(0);
-	private CountDownLatch countDownLatch;
+
+	private volatile AtomicInteger counter = new AtomicInteger(0);
+    private CountDownLatch startLatch = new CountDownLatch(1);
+    private CountDownLatch messagesLatch;
 
 	public CameraImageConsumerTestUnit(RoboContext context, String id) {
 		super(CameraMessage.class, context, id);
@@ -52,18 +59,24 @@ public class CameraImageConsumerTestUnit extends RoboUnit<CameraMessage> {
 	protected void onInitialization(Configuration configuration) throws ConfigurationException {
 		int totalNumber = configuration.getInteger(PROP_TOTAL_NUMBER_MESSAGES, 0);
 		if (totalNumber > 0) {
-			countDownLatch = new CountDownLatch(totalNumber);
+			messagesLatch = new CountDownLatch(totalNumber);
 		}
 	}
 
-	@Override
+    @Override
+    public void start() {
+        super.start();
+        startLatch.countDown();
+    }
+
+    @Override
 	public void onMessage(CameraMessage message) {
 		if (message.getImage() != null) {
 			final byte[] bytes = Base64.getDecoder().decode(message.getImage());
 			System.out.println(getClass().getSimpleName() + " Delivered image: " + counter.incrementAndGet() + " size: "
 					+ bytes.length + " imageSize: " + message.getImage().length());
-			if (countDownLatch != null) {
-				countDownLatch.countDown();
+			if (messagesLatch != null) {
+				messagesLatch.countDown();
 			}
 		} else {
 			throw new IllegalStateException("no image view");
@@ -72,15 +85,19 @@ public class CameraImageConsumerTestUnit extends RoboUnit<CameraMessage> {
 
 	@SuppressWarnings("unchecked")
 	@Override
-	protected <R> R onGetAttribute(AttributeDescriptor<R> descriptor) {
+	protected synchronized <R> R onGetAttribute(AttributeDescriptor<R> descriptor) {
 		if (descriptor.getAttributeType() == Integer.class
-				&& descriptor.getAttributeName().equals(ATTRIBUTE_NUMBER_OF_RECEIVED_IMAGES_NAME)) {
+				&& descriptor.getAttributeName().equals(ATTR_RECEIVED_IMAGES)) {
 			return (R) Integer.valueOf(counter.get());
 		}
-		if (descriptor.getAttributeName().equals(PROP_COUNT_DOWN_LATCH)
+		if (descriptor.getAttributeName().equals(ATTR_IMAGES_LATCH)
 				&& descriptor.getAttributeType() == CountDownLatch.class) {
-			return (R) countDownLatch;
+			return (R) messagesLatch;
 		}
+        if (descriptor.getAttributeName().equals(ATTR_START_LATCH)
+                && descriptor.getAttributeType() == CountDownLatch.class) {
+            return (R) startLatch;
+        }
 		return super.onGetAttribute(descriptor);
 	}
 

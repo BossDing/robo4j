@@ -42,8 +42,8 @@ public class RoboDatagramClientTest {
 	@Test
 	public void datagramClientServerTest() throws Exception {
 
-		RoboContext producerSystem = RoboContextUtils.loadSimpleByXml("robo_datagram_client_request_producer_text.xml");
-		RoboContext consumerSystem = RoboContextUtils.loadSimpleByXml("robo_datagram_client_request_consumer_text.xml");
+		RoboContext producerSystem = RoboContextUtils.loadRoboContextByXml("robo_datagram_client_request_producer_text.xml");
+		RoboContext consumerSystem = RoboContextUtils.loadRoboContextByXml("robo_datagram_client_request_consumer_text.xml");
 
 		consumerSystem.start();
 		producerSystem.start();
@@ -59,11 +59,11 @@ public class RoboDatagramClientTest {
 
         RoboReference<String> stringConsumerProducer = consumerSystem.getReference(StringConsumer.NAME);
         CountDownLatch countDownLatchStringProducer = stringConsumerProducer
-                .getAttribute(StringConsumer.DESCRIPTOR_COUNT_DOWN_LATCH).get(DEFAULT_TIMEOUT, TimeUnit.MINUTES);
+                .getAttribute(StringConsumer.DESCRIPTOR_MESSAGES_LATCH).get(DEFAULT_TIMEOUT, TimeUnit.MINUTES);
 
         countDownLatchStringProducer.await(TIMEOUT, TIME_UNIT);
         final int consumerTotalNumber = stringConsumerProducer
-                .getAttribute(StringConsumer.DESCRIPTOR_MESSAGES_NUMBER_TOTAL).get(DEFAULT_TIMEOUT, TimeUnit.MINUTES);
+                .getAttribute(StringConsumer.DESCRIPTOR_MESSAGES_TOTAL).get(DEFAULT_TIMEOUT, TimeUnit.MINUTES);
 
         producerSystem.shutdown();
         consumerSystem.shutdown();

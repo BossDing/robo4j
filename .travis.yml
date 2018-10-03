@@ -7,3 +7,7 @@ addons:
 language: java
 script: gradlew clean build
 jdk: oraclejdk8
+
+branches:
+  only:
+  - master

@@ -1,5 +1,5 @@
 ext {
-    robo4jVersion = "alpha-0.4.3-SNAPSHOT"
+    robo4jVersion = "alpha-0.4.4-SNAPSHOT"
     //sonatype
     ossrhUsername = ""
     ossrhPassword = ""
